@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+# Echte Daten nie ins Repository
+daten/
+echt/
+*.sta
+*.mt940
+*.duckdb

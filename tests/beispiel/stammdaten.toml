@@ -1,0 +1,93 @@
+# Erfundenes Beispielobjekt für Tests
+[objekt]
+name = "WEG Lindenstraße 12–14 (Beispiel)"
+jahr = 2025
+
+[[konten]]
+iban = "DE99999999990000004711"
+art = "Girokonto"
+
+[[konten]]
+iban = "DE99999999990000000815"
+art = "Rücklagenkonto"
+
+[[einheiten]]
+nummer = "WE 1"
+hausgeld_soll = "310.00"
+[[einheiten.eigentuemer]]
+name = "Eigentümer 1 (Beispiel)"
+ibans = ["DE99000000000000000001"]
+
+[[einheiten]]
+nummer = "WE 2"
+hausgeld_soll = "275.00"
+[[einheiten.eigentuemer]]
+name = "Eigentümer 2 (Beispiel)"
+ibans = ["DE99000000000000000002"]
+
+[[einheiten]]
+nummer = "WE 3"
+hausgeld_soll = "342.00"
+[[einheiten.eigentuemer]]
+name = "Eigentümer 3 (Beispiel)"
+ibans = ["DE99000000000000000003"]
+
+[[einheiten]]
+nummer = "WE 4"
+hausgeld_soll = "298.00"
+[[einheiten.eigentuemer]]
+name = "Eigentümer 4 (Beispiel)"
+ibans = ["DE99000000000000000004"]
+
+[[einheiten]]
+nummer = "WE 5"
+hausgeld_soll = "265.00"
+[[einheiten.eigentuemer]]
+name = "Eigentümer 5 (Beispiel)"
+ibans = ["DE99000000000000000005"]
+
+[[einheiten]]
+nummer = "WE 6"
+hausgeld_soll = "330.00"
+[[einheiten.eigentuemer]]
+name = "Eigentümer 6 (Beispiel)"
+ibans = ["DE99000000000000000006"]
+
+[[einheiten]]
+nummer = "WE 7"
+hausgeld_soll = "288.00"
+[[einheiten.eigentuemer]]
+name = "Eigentümer 7 (Beispiel)"
+ibans = ["DE99000000000000000007"]
+
+[[einheiten]]
+nummer = "WE 8"
+hausgeld_soll = "305.00"
+[[einheiten.eigentuemer]]
+name = "Eigentümer 8 (Beispiel)"
+ibans = ["DE99000000000000000008"]
+bis = 2025-06-30
+[[einheiten.eigentuemer]]
+name = "Neue Eigentümerin 8 (Beispiel)"
+ibans = ["DE99000000000000000088"]
+von = 2025-07-01
+
+[[kostengruppen]]
+gruppe = "Versorger"
+muster = ["stadtwerke", "wasser", "strom", "gas", "fernwärme", "fernwaerme"]
+
+[[kostengruppen]]
+gruppe = "Handwerker und Wartung"
+muster = ["wartung", "reparatur", "heizung", "sanitär", "elektro"]
+
+[[kostengruppen]]
+gruppe = "Versicherungen"
+muster = ["versicherung"]
+
+[[kostengruppen]]
+gruppe = "Verwaltung"
+muster = ["verwalter", "verwaltung"]
+
+[[kostengruppen]]
+gruppe = "Bank und Gebühren"
+muster = ["kontofuehrung", "kontoführung", "entgelt", "gebühr"]
