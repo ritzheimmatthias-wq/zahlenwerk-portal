@@ -1,0 +1,4 @@
+Auftragskonto;Buchungstag;Valutadatum;Buchungstext;Verwendungszweck;Beguenstigter/Zahlungspflichtiger;Kontonummer/IBAN;BIC (SWIFT-Code);Betrag;Waehrung;Info
+DE99999999990000004711;03.01.25;03.01.25;GUTSCHR. UEBERWEISUNG;Hausgeld WE 1 01/2025;Eigentuemer 1 (Beispiel);DE99000000000000000001;BEISPIELXXX;310,00;EUR;Umsatz gebucht
+DE99999999990000004711;10.01.25;10.01.25;LASTSCHRIFT;Abschlag Strom Gas 01/2025;Stadtwerke Musterstadt (Beispiel);DE99100000000000000100;BEISPIELXXX;-1.235,00;EUR;Umsatz gebucht
+DE99999999990000004711;31.01.25;31.01.25;LASTSCHRIFT;Vorgemerkt;Beispiel;DE99100000000000000999;BEISPIELXXX;-9,99;EUR;Umsatz vorgemerkt
