@@ -9,6 +9,16 @@
 | ↳ tinyhtml5, fonttools, cffi, Pillow | Abhängigkeiten von WeasyPrint | MIT, MIT-0, MIT-CMU | 01.11.2026 |
 | ↳ Pyphen | Silbentrennung (von WeasyPrint geladen) | dreifach lizenziert GPL/LGPL/MPL 1.1, genutzt unter MPL 1.1 bzw. LGPL, unverändert | 01.11.2026 |
 | Pango (Systembibliothek) | Textsatz für WeasyPrint | LGPL-2.1, unverändert als Bibliothek | 01.11.2026 |
+| Django (optional `[portal]`) | Kundenportal: Anmeldung, Formulare, Datenbank | BSD-3-Clause | 01.11.2026 |
+| ↳ asgiref, sqlparse | Abhängigkeiten von Django | BSD | 01.11.2026 |
+| argon2-cffi | Passwort-Hashes (Argon2) | MIT | 01.11.2026 |
+| cryptography | AES-256-GCM-Verschlüsselung der Dateien | Apache-2.0 oder BSD-3-Clause | 01.11.2026 |
+| whitenoise | Auslieferung der eigenen CSS-Datei | MIT | 01.11.2026 |
+| gunicorn (nur Betrieb) | Anwendungsserver | MIT | 01.11.2026 |
+| psycopg (nur Betrieb) | PostgreSQL-Anbindung | LGPL-3.0, unverändert als Bibliothek | 01.11.2026 |
+| pytest-django (nur Tests) | Tests des Portals | BSD-3-Clause | 01.11.2026 |
+| ClamAV (eigener Container) | Virenscan, nur über das Netzprotokoll angesprochen | GPL-2.0, eigenes Programm, kein Code übernommen | 01.11.2026 |
+| PostgreSQL (eigener Container) | Datenbank | PostgreSQL-Lizenz (BSD-ähnlich) | 01.11.2026 |
 | pdftotext (poppler-utils, Systemprogramm) | Text aus PDF-Kontoauszügen | GPL-2.0/3.0, nur als eigenes Programm aufgerufen, kein Code übernommen | 01.11.2026 |
 
 ## Entscheidung CAMT-Parser (31.10.2026)
@@ -42,3 +52,11 @@ werden maskiert, externe Ressourcen werden nicht nachgeladen. Schriften: Geist
 und Lora, falls auf dem Server installiert (beide OFL), sonst DejaVu. Der
 Bericht trägt immer den Vermerk „Entwurf · vorläufig, zu prüfen“ und keine
 Telefonnummer.
+
+## Kundenportal Stufe 1 (01.11.2026)
+
+Django statt eines Mikro-Frameworks, weil Anmeldung, Sitzungen, CSRF-Schutz,
+Passwort-Hashing und Datenbank-Migrationen geprüft mitgeliefert werden. Weniger
+eigener Sicherheitscode heißt weniger Fehlerquellen für ein Ein-Personen-Projekt.
+Die Seiten werden auf dem Server erzeugt, ohne JavaScript und ohne externe
+Schriften oder Dienste (strenge Content-Security-Policy).

@@ -1,0 +1,70 @@
+{% extends "kundenportal/base.html" %}
+{% block titel %}{{ a }} · intern{% endblock %}
+{% block inhalt %}
+<div><a class="meta" href="{% url 'intern' %}">‹ Zurück zum Eingang</a>
+<h1>{{ a }} · {{ a.objekt.bezeichnung }}</h1>
+<p class="lead">{{ a.objekt.kunde }} · Status <span class="pill s-{{ a.status }}">{{ a.get_status_display }}</span>
+{% if a.loeschdatum %} · Löschung der Unterlagen am {{ a.loeschdatum|date:"d.m.Y" }}{% endif %}</p></div>
+<div class="grid2">
+  <div class="card"><div class="row sp"><h2>Checkliste</h2><span class="meta num">{{ fertig_gesamt.0 }} von {{ fertig_gesamt.1 }}</span></div>
+    <ul class="list">
+    {% for p in a.punkte.all %}
+      <li><span>{{ p.text }}</span><span class="pill s-{{ p.status }}">{{ p.get_status_display }}</span>
+      <span class="sub meta">{{ p.get_kategorie_display }}{% if p.kommentar %} · „{{ p.kommentar }}“{% endif %}</span>
+      <form class="sub inline" method="post" action="{% url 'intern_punkt_status' p.pk %}">{% csrf_token %}
+        <select name="status" aria-label="Status von {{ p.text }}">{% for k, v in p.STATUS %}<option value="{{ k }}"{% if k == p.status %} selected{% endif %}>{{ v }}</option>{% endfor %}</select>
+        <input type="text" name="kommentar" aria-label="Kommentar" placeholder="Kommentar bei Nachreichung">
+        <button class="btn ghost small">Setzen</button></form></li>
+    {% endfor %}
+    </ul>
+    <form method="post" action="{% url 'intern_punkt' a.pk %}" class="grid3">{% csrf_token %}
+      <label for="{{ punktform.text.id_for_label }}">{{ punktform.text.label }}{{ punktform.text }}</label>
+      <label for="{{ punktform.kategorie.id_for_label }}">{{ punktform.kategorie.label }}{{ punktform.kategorie }}</label>
+      <div class="row unten"><button class="btn small">Hinzufügen</button></div>
+    </form>
+  </div>
+  <div class="card"><h2>Dokumente</h2>
+    <ul class="list">
+    {% for d in dokumente %}
+      <li><span><a href="{% url 'dokument' d.pk %}">{{ d.originalname }}</a></span>
+      <span class="pill {% if d.richtung == 'ergebnis' %}p-info{% elif d.geprueft %}p-ok{% else %}p-warn{% endif %}">{% if d.richtung == 'ergebnis' %}an Kunden{% elif d.geprueft %}geprüft{% else %}zu prüfen{% endif %}</span>
+      <span class="sub meta">{{ d.punkt|default:"" }} · {{ d.hochgeladen|date:"d.m.Y H:i" }} · {{ d.dateityp|upper }} · {{ d.groesse|filesizeformat }} · Scan {{ d.get_scan_display }}{% if d.richtung == 'ergebnis' and d.gelesen %} · abgerufen {{ d.gelesen|date:"d.m.Y" }}{% endif %}</span>
+      {% if d.hinweis %}<span class="sub note">Hinweis des Kunden: {{ d.hinweis }}</span>{% endif %}
+      {% if d.richtung == 'kunde' and not d.geprueft %}
+      <form class="sub inline" method="post" action="{% url 'intern_pruefen' d.pk %}">{% csrf_token %}<input type="hidden" name="zurueck" value="auftrag">
+        <button class="btn small" name="aktion" value="geprueft">Geprüft</button>
+        <input type="text" name="kommentar" aria-label="Kommentar" placeholder="Kommentar">
+        <button class="btn ghost small" name="aktion" value="nachreichen">Nachreichen</button></form>{% endif %}
+      </li>
+    {% empty %}<li><span class="meta">Noch keine Dokumente.</span></li>{% endfor %}
+    </ul>
+    <form method="post" enctype="multipart/form-data" action="{% url 'intern_ergebnis' a.pk %}" class="card flat">{% csrf_token %}
+      <label for="{{ ergebnisform.datei.id_for_label }}">{{ ergebnisform.datei.label }}{{ ergebnisform.datei }}</label>
+      <button class="btn small">Für den Kunden bereitstellen</button>
+    </form>
+  </div>
+</div>
+<div class="grid2">
+  <div class="card"><h2>Zugänge</h2>
+    <ul class="list">
+    {% for b in benutzer %}
+      <li><span>{{ b.email }}</span><span class="pill {% if b.is_active %}p-ok{% else %}p-bad{% endif %}">{% if b.is_active %}aktiv{% else %}gesperrt{% endif %}</span>
+      <span class="sub row">
+        <form method="post" action="{% url 'intern_einladen' b.pk %}">{% csrf_token %}<input type="hidden" name="weiter" value="{{ request.path }}"><button class="btn ghost small">Neue Einladung senden</button></form>
+        <form method="post" action="{% url 'intern_sperren' b.pk %}">{% csrf_token %}<input type="hidden" name="weiter" value="{{ request.path }}"><button class="btn ghost small">{% if b.is_active %}Sperren{% else %}Entsperren{% endif %}</button></form>
+      </span></li>
+    {% empty %}<li><span class="meta">Kein Zugang angelegt.</span></li>{% endfor %}
+    </ul>
+  </div>
+  <div class="card"><h2>Abschluss und Löschung</h2>
+    {% if a.status != "abgeschlossen" %}
+    <form method="post" action="{% url 'intern_abschliessen' a.pk %}">{% csrf_token %}<button class="btn">Auftrag abschließen</button></form>
+    <p class="meta">Mit dem Abschluss beginnt die Löschfrist von 90 Tagen. Danach löscht der nächtliche Löschjob alle Unterlagen dieses Auftrags.</p>
+    {% endif %}
+    <form method="post" action="{% url 'intern_loeschen' a.pk %}" class="card flat">{% csrf_token %}
+      <label class="check"><input type="checkbox" name="bestaetigt" value="ja"> Alle Unterlagen dieses Auftrags jetzt endgültig löschen</label>
+      <button class="btn danger small">Jetzt löschen</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

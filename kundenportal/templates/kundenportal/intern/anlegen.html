@@ -1,0 +1,59 @@
+{% extends "kundenportal/base.html" %}
+{% block titel %}Objekt anlegen{% endblock %}
+{% block inhalt %}
+<div><a class="meta" href="{% url 'intern' %}">‹ Zurück zum Eingang</a><h1>Objekt anlegen</h1>
+<p class="lead">Kunde, Objekt und ersten Auftrag anlegen. Der Kunde kann fehlende Angaben später ergänzen lassen.</p></div>
+<form method="post" class="stapel" novalidate>{% csrf_token %}
+{{ form.non_field_errors }}
+<div class="grid2">
+  <div class="card"><h2>1 Kunde</h2>
+    <label for="{{ form.bestehender_kunde.id_for_label }}">{{ form.bestehender_kunde.label }}{{ form.bestehender_kunde }}</label>
+    <p class="meta">Bei einem bestehenden Kunden bekommen alle seine Zugänge das neue Objekt freigegeben. Die Felder darunter nur für einen neuen Kunden ausfüllen.</p>
+    <label for="{{ form.kunde_art.id_for_label }}">{{ form.kunde_art.label }}{{ form.kunde_art }}</label>
+    <label for="{{ form.kunde_name.id_for_label }}">{{ form.kunde_name.label }}{{ form.kunde_name }}</label>{{ form.kunde_name.errors }}
+    <label for="{{ form.ansprechpartner.id_for_label }}">{{ form.ansprechpartner.label }}{{ form.ansprechpartner }}</label>
+    <label for="{{ form.email.id_for_label }}">{{ form.email.label }}{{ form.email }}</label>{{ form.email.errors }}
+  </div>
+  <div class="card"><h2>2 Objekt</h2>
+    <label for="{{ form.bezeichnung.id_for_label }}">{{ form.bezeichnung.label }}{{ form.bezeichnung }}</label>{{ form.bezeichnung.errors }}
+    <label for="{{ form.anschrift.id_for_label }}">{{ form.anschrift.label }}{{ form.anschrift }}</label>{{ form.anschrift.errors }}
+    <label for="{{ form.ort.id_for_label }}">{{ form.ort.label }}{{ form.ort }}</label>
+    <div class="grid3">
+      <label for="{{ form.objektart.id_for_label }}">{{ form.objektart.label }}{{ form.objektart }}</label>
+      <label for="{{ form.baujahr.id_for_label }}">{{ form.baujahr.label }}{{ form.baujahr }}</label>
+      <label for="{{ form.wirtschaftsjahr.id_for_label }}">{{ form.wirtschaftsjahr.label }}{{ form.wirtschaftsjahr }}</label>
+    </div>
+    <label for="{{ form.heizung.id_for_label }}">{{ form.heizung.label }}{{ form.heizung }}</label>
+  </div>
+</div>
+<div class="card"><h2>3 Konten</h2>
+  <p class="meta">Über die IBAN ordnet die Auswertung Kontoauszüge dem Objekt zu. Die Prüfziffer wird beim Speichern geprüft. Zeilen ohne IBAN werden ignoriert.</p>
+  {{ konten.management_form }}{{ konten.non_form_errors }}
+  <div class="tbl-wrap"><table class="ed"><thead><tr><th>Bezeichnung</th><th>Art</th><th>IBAN</th></tr></thead><tbody>
+  {% for f in konten %}<tr><td>{{ f.bezeichnung }}</td><td>{{ f.art }}</td><td>{{ f.iban }}{{ f.iban.errors }}</td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+<div class="card"><div class="row sp"><h2>4 Einheiten und Eigentümer</h2><a class="btn ghost small" href="?einheiten={{ mehr }}">Mehr Zeilen</a></div>
+  <p class="meta">Hausgeld je Monat laut Wirtschaftsplan. Bei einem Eigentümerwechsel eine zweite Zeile mit derselben Einheit und dem Datum „ab“. Leere Zeilen werden ignoriert. „Mehr Zeilen“ leert das Formular.</p>
+  {{ einheiten.management_form }}{{ einheiten.non_form_errors }}
+  <div class="tbl-wrap"><table class="ed"><thead><tr><th>Einheit</th><th>Eigentümer</th><th>MEA</th><th>Hausgeld / Monat</th><th>ab</th><th>IBAN Eigentümer</th></tr></thead><tbody>
+  {% for f in einheiten %}<tr><td>{{ f.nummer }}</td><td>{{ f.eigentuemer }}</td><td>{{ f.mea }}{{ f.mea.errors }}</td><td>{{ f.hausgeld }}{{ f.hausgeld.errors }}</td><td>{{ f.ab }}{{ f.ab.errors }}</td><td>{{ f.iban }}{{ f.iban.errors }}</td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+<div class="grid2">
+  <div class="card"><h2>5 Erster Auftrag</h2>
+    <div class="grid3">
+      <label for="{{ form.leistung.id_for_label }}">{{ form.leistung.label }}{{ form.leistung }}</label>
+      <label for="{{ form.jahr.id_for_label }}">{{ form.jahr.label }}{{ form.jahr }}</label>
+    </div>{{ form.jahr.errors }}
+    <p class="meta">Die Checkliste entsteht aus der Vorlage zur Leistung und lässt sich danach im Auftrag ergänzen.</p>
+    {% for key, v in vorlagen.items %}<details><summary>{{ v.0 }}</summary><ul>{% for t in v.1 %}<li class="meta">{{ t }}</li>{% endfor %}</ul></details>{% endfor %}
+  </div>
+  <div class="card"><h2>6 Einladung</h2>
+    <label class="check" for="{{ form.einladen.id_for_label }}">{{ form.einladen }} {{ form.einladen.label }}</label>
+    <div class="note">Der Einladungslink ist 7 Tage gültig. Beim ersten Aufruf vergibt der Kunde sein Passwort, danach meldet er sich mit Passwort und Code per E-Mail an.</div>
+    <div class="row"><button class="btn" type="submit">Objekt anlegen</button></div>
+  </div>
+</div>
+</form>
+{% endblock %}

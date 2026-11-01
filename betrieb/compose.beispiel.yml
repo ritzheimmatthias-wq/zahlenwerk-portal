@@ -1,0 +1,59 @@
+# Beispiel für den KVM-2. Ohne Werte: alle Geheimnisse stehen nur in betrieb/.env auf dem Server (chmod 600).
+# Erst nach Rückfallwoche, Upgrade, Neuinstallation und ausdrücklicher Freigabe starten.
+services:
+  portal:
+    build: ..
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORTAL_DATEN: /daten
+      PORTAL_DB_HOST: db
+      PORTAL_VIRENSCAN: clamd
+      PORTAL_CLAMD_HOST: clamav
+    volumes:
+      - portal-daten:/daten
+    depends_on: [db, clamav]
+    networks: [intern, proxy]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.portal.rule=Host(`${PORTAL_DOMAIN}`)
+      - traefik.http.routers.portal.entrypoints=websecure
+      - traefik.http.routers.portal.tls.certresolver=letsencrypt
+      - traefik.http.services.portal.loadbalancer.server.port=8000
+      - traefik.http.middlewares.portal-limit.buffering.maxRequestBodyBytes=55000000
+      - traefik.http.routers.portal.middlewares=portal-limit
+  loeschjob:
+    build: ..
+    env_file: .env
+    environment:
+      PORTAL_DATEN: /daten
+      PORTAL_DB_HOST: db
+      PORTAL_VIRENSCAN: clamd
+      PORTAL_CLAMD_HOST: clamav
+    volumes:
+      - portal-daten:/daten
+    networks: [intern]
+    profiles: [job]   # täglich per systemd-Timer: docker compose run --rm loeschjob
+    command: ["python", "manage.py", "loeschjob"]
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PORTAL_DB_NAME}
+      POSTGRES_USER: ${PORTAL_DB_USER}
+      POSTGRES_PASSWORD: ${PORTAL_DB_PASSWORD}
+    volumes:
+      - portal-db:/var/lib/postgresql/data
+    networks: [intern]
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    networks: [intern]
+volumes:
+  portal-daten:
+  portal-db:
+networks:
+  intern:
+    internal: true
+  proxy:
+    external: true

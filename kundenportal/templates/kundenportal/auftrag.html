@@ -1,0 +1,40 @@
+{% extends "kundenportal/base.html" %}
+{% block titel %}{{ a }}{% endblock %}
+{% block inhalt %}
+<div><a class="meta" href="{% url 'objekt' a.objekt.pk %}">‹ Zurück zum Objekt</a><h1>{{ a }}</h1>
+<p class="lead">{{ a.objekt.bezeichnung }}. Laden Sie je Punkt die passenden Unterlagen hoch. Kontoauszüge am besten als CSV oder CAMT aus dem Onlinebanking.</p></div>
+{% if ergebnisse %}<div class="card"><h2>Von Zahlenwerk</h2><ul class="list">
+  {% for d in ergebnisse %}<li><a href="{% url 'dokument' d.pk %}">{{ d.originalname }}</a>{% if not d.gelesen %}<span class="pill p-info">neu</span>{% else %}<span class="pill p-open">abgerufen</span>{% endif %}
+  <span class="sub meta">bereitgestellt {{ d.hochgeladen|date:"d.m.Y" }}{% if a.loeschdatum %} · abrufbar bis {{ a.loeschdatum|date:"d.m.Y" }}{% endif %}</span></li>{% endfor %}
+</ul></div>{% endif %}
+<div class="grid2">
+  <div class="card">
+    <div class="row sp"><h2>Checkliste</h2><span class="meta num">{{ fertig }} von {{ gesamt }} eingereicht</span></div>
+    <ul class="list">
+    {% for p in a.punkte.all %}
+      <li><span>{{ p.text }}</span><span class="pill s-{{ p.status }}">{{ p.get_status_display }}</span>
+      <span class="sub meta">{{ p.get_kategorie_display }}{% if p.kommentar %} · „{{ p.kommentar }}“{% endif %}</span></li>
+    {% endfor %}
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Unterlage hochladen</h2>
+    {% if offen %}
+    <p class="meta">Erlaubt: {{ erlaubt }} · höchstens 50 MB je Datei. ZIP, Makro-Dateien und Programme werden abgelehnt.</p>
+    <form method="post" enctype="multipart/form-data" class="card flat">{% csrf_token %}
+      {{ form.non_field_errors }}
+      <label for="{{ form.punkt.id_for_label }}">{{ form.punkt.label }}{{ form.punkt }}</label>{{ form.punkt.errors }}
+      <label for="{{ form.zeitraum.id_for_label }}">{{ form.zeitraum.label }}{{ form.zeitraum }}</label>
+      <label for="{{ form.datei.id_for_label }}">{{ form.datei.label }}{{ form.datei }}</label>{{ form.datei.errors }}
+      <label for="{{ form.hinweis.id_for_label }}">{{ form.hinweis.label }}{{ form.hinweis }}</label>
+      <label class="check" for="{{ form.berechtigt.id_for_label }}">{{ form.berechtigt }} {{ form.berechtigt.label }}</label>{{ form.berechtigt.errors }}
+      <button class="btn" type="submit">Hochladen</button>
+    </form>
+    <div class="note">Dateien werden einzeln verschlüsselt gespeichert und 90 Tage nach Abschluss des Auftrags automatisch gelöscht.</div>
+    {% else %}<p class="lead">Dieser Auftrag ist abgeschlossen.</p>{% endif %}
+    {% if eigene %}<h3>Ihre Uploads</h3><ul class="list">
+      {% for d in eigene %}<li><span>{{ d.originalname }}</span><span class="meta num">{{ d.hochgeladen|date:"d.m.Y H:i" }}</span><span class="sub meta">{{ d.punkt|default:"" }}</span></li>{% endfor %}
+    </ul>{% endif %}
+  </div>
+</div>
+{% endblock %}

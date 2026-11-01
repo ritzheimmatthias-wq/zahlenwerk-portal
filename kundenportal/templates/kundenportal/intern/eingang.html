@@ -1,0 +1,40 @@
+{% extends "kundenportal/base.html" %}
+{% block titel %}Eingang{% endblock %}
+{% block inhalt %}
+<div class="row sp"><div><h1>Eingang und Prüfung</h1><p class="lead">Neue Uploads prüfen, Nachreichungen anfordern, Aufträge steuern.</p></div>
+<a class="btn" href="{% url 'intern_anlegen' %}">Objekt anlegen</a></div>
+<div class="grid3">
+  <div class="card kpi"><span class="meta">Zu prüfen</span><b class="num">{{ zu_pruefen|length }}</b></div>
+  <div class="card kpi"><span class="meta">Warten auf Kunde</span><b class="num">{{ warten }}</b></div>
+  <div class="card kpi"><span class="meta">Laufende Aufträge</span><b class="num">{{ laufend }}</b></div>
+  <div class="card kpi"><span class="meta">Löschung in 14 Tagen</span><b class="num">{{ bald }}</b></div>
+</div>
+<div class="card"><h2>Neue Uploads</h2>
+<ul class="list">
+{% for d in zu_pruefen %}
+  <li><span><a href="{% url 'dokument' d.pk %}"><strong>{{ d.originalname }}</strong></a></span>
+  <span class="pill {% if d.scan == 'sauber' %}p-ok{% else %}p-warn{% endif %}">Scan {{ d.get_scan_display }}</span>
+  <span class="sub meta">{{ d.auftrag.objekt.bezeichnung }} · {{ d.punkt|default:"ohne Punkt" }} · {{ d.hochgeladen|date:"d.m.Y H:i" }}{% if d.zeitraum %} · {{ d.zeitraum }}{% endif %}</span>
+  {% if d.hinweis %}<span class="sub note">Hinweis des Kunden: {{ d.hinweis }}</span>{% endif %}
+  <form class="sub inline" method="post" action="{% url 'intern_pruefen' d.pk %}">{% csrf_token %}
+    <button class="btn small" name="aktion" value="geprueft">Geprüft</button>
+    <input type="text" name="kommentar" aria-label="Kommentar zur Nachreichung" placeholder="Kommentar, z. B. Seite 3 fehlt">
+    <button class="btn ghost small" name="aktion" value="nachreichen">Nachreichen anfordern</button>
+  </form></li>
+{% empty %}<li><span class="meta">Alles geprüft.</span></li>{% endfor %}
+</ul></div>
+<div class="card"><h2>Aufträge</h2>
+<div class="tbl-wrap"><table>
+<thead><tr><th>Kunde / Objekt</th><th>Leistung</th><th>Checkliste</th><th>Status</th><th>Löschdatum</th></tr></thead>
+<tbody>
+{% for a, fertig, gesamt in auftraege %}
+<tr><td><a href="{% url 'intern_auftrag' a.pk %}">{{ a.objekt.bezeichnung }}</a><br><span class="meta">{{ a.objekt.kunde }}</span></td><td>{{ a }}</td>
+<td class="num">{{ fertig }} / {{ gesamt }}</td><td><span class="pill s-{{ a.status }}">{{ a.get_status_display }}</span></td>
+<td class="num">{{ a.loeschdatum|date:"d.m.Y"|default:"nach Abschluss" }}</td></tr>
+{% empty %}<tr><td colspan="5" class="meta">Noch keine Aufträge.</td></tr>{% endfor %}
+</tbody></table></div></div>
+<details class="card"><summary>Protokoll (letzte 15 Einträge)</summary>
+<div class="tbl-wrap"><table><thead><tr><th>Zeit</th><th>Wer</th><th>Aktion</th><th>Bezug</th></tr></thead><tbody>
+{% for p in protokoll %}<tr><td class="num">{{ p.zeit|date:"d.m.Y H:i" }}</td><td>{{ p.benutzer.email|default:"System" }}</td><td>{{ p.aktion }}</td><td class="meta">{{ p.bezug }}</td></tr>{% endfor %}
+</tbody></table></div></details>
+{% endblock %}
