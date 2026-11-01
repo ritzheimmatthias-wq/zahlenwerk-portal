@@ -1,0 +1,10 @@
+{
+  "pdfs": 9,
+  "pages": 25,
+  "fields": 141,
+  "blank_values_verified": true,
+  "roundtrip_canonical_and_widget_values_verified": true,
+  "appearance_streams_present": true,
+  "hashes_verified": true,
+  "javascript_open_actions": false
+}

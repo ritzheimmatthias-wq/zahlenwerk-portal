@@ -12,7 +12,7 @@
   <a class="brand" href="/">Zahlenwerk Immobilien<small>{% if user.is_staff %}Interner Bereich{% else %}Kundenportal{% endif %}</small></a>
   <div class="who">
     {% if user.is_authenticated %}
-      {% if user.is_staff %}<a href="{% url 'intern' %}">Eingang</a><a href="{% url 'intern_anlegen' %}">Objekt anlegen</a>{% endif %}
+      {% if user.is_staff %}<a href="{% url 'intern' %}">Eingang</a><a href="{% url 'intern_anlegen' %}">Objekt anlegen</a><a href="{% url 'vorlagen' %}">Vorlagen</a>{% elif vorlagen_fuer_kunden %}<a href="{% url 'vorlagen' %}">Vorlagen</a>{% endif %}
       <span>{{ user.email }}</span>
       <form method="post" action="{% url 'abmelden' %}">{% csrf_token %}<button class="btn ghost small" type="submit">Abmelden</button></form>
     {% else %}<span>Nicht angemeldet</span>{% endif %}

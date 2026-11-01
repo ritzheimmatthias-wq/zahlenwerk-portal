@@ -1,0 +1,1087 @@
+[
+  {
+    "id": "01",
+    "title": "Betriebskostenvorauszahlung anpassen",
+    "file": "01 Betriebskostenvorauszahlung anpassen.pdf",
+    "pages": 2,
+    "fields": [
+      {
+        "name": "d01_p1_f001",
+        "label": "Absender und Anschrift",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d01_p1_f002",
+        "label": "An sämtliche Mietvertragsparteien und Zustellanschrift",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d01_p1_f003",
+        "label": "Wohnung und Mietvertragsdatum",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d01_p1_f004",
+        "label": "Ort und Datum",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d01_p1_f005",
+        "label": "Abrechnungszeitraum und Datum der Abrechnung",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d01_p1_f006",
+        "label": "Abrechnung zugegangen am",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d01_p1_f007",
+        "label": "Umlagefähiger Jahreskostenanteil der Wohnung in EUR",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d01_p1_f008",
+        "label": "Konkrete Kostenänderungen mit Nachweis in EUR pro Jahr und Begründung",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d01_p1_f009",
+        "label": "Bisherige und neue monatliche Vorauszahlung in EUR",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d01_p1_f010",
+        "label": "Neue monatliche Gesamtzahlung inklusive unveränderter Grundmiete in EUR",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d01_p1_f011",
+        "label": "Erster zukünftiger Zahlungstermin nach Zugang",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d01_p1_f012",
+        "label": "Name der erklärenden Person und Funktion",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      }
+    ],
+    "sha256": "d9d6492428226b02536b34f13694b2f33093c474441ad03d846f88465d37b7c9",
+    "status": "fachlich-gepruefter-entwurf",
+    "reviewed": "2026-11-01",
+    "portal_published": false
+  },
+  {
+    "id": "02",
+    "title": "Wohnungsgeberbestätigung",
+    "file": "02 Wohnungsgeberbestätigung.pdf",
+    "pages": 2,
+    "fields": [
+      {
+        "name": "d02_p1_f001",
+        "label": "Wohnungsanschrift Straße Hausnummer PLZ Ort",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d02_p1_f002",
+        "label": "Wohnungslage Geschoss oder Wohnungsnummer",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d02_p1_f003",
+        "label": "Tatsächliches Einzugsdatum",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d02_p1_f004",
+        "label": "Name und Anschrift des Wohnungsgebers",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d02_p1_f005",
+        "label": "Wohnungsgeber ist zugleich Eigentümer",
+        "page": 1,
+        "type": "checkbox"
+      },
+      {
+        "name": "d02_p1_f006",
+        "label": "Falls abweichend Name des Eigentümers",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d02_p1_f007",
+        "label": "Person 1 Vorname und Nachname",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d02_p1_f008",
+        "label": "Person 2 Vorname und Nachname",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d02_p1_f009",
+        "label": "Person 3 Vorname und Nachname",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d02_p1_f010",
+        "label": "Person 4 Vorname und Nachname",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d02_p1_f011",
+        "label": "Ausstellende Person und gegebenenfalls Vertretungsfunktion",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      }
+    ],
+    "sha256": "2e37d2a32fb7f0da640adceeefb2df319e2fba78dd1863b7d1e50f78c893359c",
+    "status": "fachlich-gepruefter-entwurf",
+    "reviewed": "2026-11-01",
+    "portal_published": false
+  },
+  {
+    "id": "03",
+    "title": "Vorabnahme einer Mietwohnung",
+    "file": "03 Vorabnahme einer Mietwohnung.pdf",
+    "pages": 4,
+    "fields": [
+      {
+        "name": "d03_p1_f001",
+        "label": "Wohnung und Mietvertragsparteien",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d03_p1_f002",
+        "label": "Begehung Datum und Uhrzeit",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d03_p1_f003",
+        "label": "Vermieterseite und Vertretungsberechtigung",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d03_p1_f004",
+        "label": "Mieterseite und weitere Anwesende",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d03_p1_f005",
+        "label": "Voraussichtlicher Rückgabetermin",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d03_p1_f006",
+        "label": "Mietvertrag und Einzugsprotokoll als Vergleichsunterlagen",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d03_p1_f007",
+        "label": "Einbauten Umbauten und vorhandene Genehmigungen",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d03_p1_f008",
+        "label": "Offene Fragen für die Endabnahme",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d03_p2_f009",
+        "label": "Raum 1 und Bauteil Zustand Foto oder Anlage",
+        "page": 2,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d03_p2_f010",
+        "label": "Raum 2 und Bauteil Zustand Foto oder Anlage",
+        "page": 2,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d03_p2_f011",
+        "label": "Raum 3 und Bauteil Zustand Foto oder Anlage",
+        "page": 2,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d03_p2_f012",
+        "label": "Raum 4 und Bauteil Zustand Foto oder Anlage",
+        "page": 2,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d03_p2_f013",
+        "label": "Abweichende Angaben der Beteiligten",
+        "page": 2,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d03_p3_f014",
+        "label": "Noch zu prüfende Vertragsregelungen oder Genehmigungen",
+        "page": 3,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d03_p3_f015",
+        "label": "Unverbindliche Vorschläge zum weiteren Vorgehen",
+        "page": 3,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d03_p3_f016",
+        "label": "Fotoliste und Anlagen mit Datum und Seitenzahl",
+        "page": 3,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d03_p3_f017",
+        "label": "Ausfertigungen erhalten durch und am",
+        "page": 3,
+        "type": "text",
+        "multiline": false
+      }
+    ],
+    "sha256": "3ba871547fa8f90a0b2c0825652dd8d70faf600e5b246a0403defe3e4b885fe8",
+    "status": "fachlich-gepruefter-entwurf",
+    "reviewed": "2026-11-01",
+    "portal_published": false
+  },
+  {
+    "id": "04",
+    "title": "Eingang einer Mieterkündigung bestätigen",
+    "file": "04 Eingang einer Mieterkündigung bestätigen.pdf",
+    "pages": 2,
+    "fields": [
+      {
+        "name": "d04_p1_f001",
+        "label": "Absender und Anschrift",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d04_p1_f002",
+        "label": "An sämtliche Mietvertragsparteien und Zustellanschrift",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d04_p1_f003",
+        "label": "Wohnung und Mietvertragsdatum",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d04_p1_f004",
+        "label": "Ort und Datum",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d04_p1_f005",
+        "label": "Kündigungsschreiben vom und tatsächlicher Zugang am",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d04_p1_f006",
+        "label": "Nur Eingang bestätigt der rechtliche Beendigungszeitpunkt wird noch geprüft",
+        "page": 1,
+        "type": "checkbox"
+      },
+      {
+        "name": "d04_p1_f007",
+        "label": "Nach Prüfung endet das Mietverhältnis zum unten eingetragenen Datum",
+        "page": 1,
+        "type": "checkbox"
+      },
+      {
+        "name": "d04_p1_f008",
+        "label": "Geprüfter Beendigungszeitpunkt nur bei Auswahl der zweiten Variante",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d04_p1_f009",
+        "label": "Vorschlag für Begehung oder Rückgabe Datum und Uhrzeit",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d04_p1_f010",
+        "label": "Kontakt für Terminabstimmung",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d04_p1_f011",
+        "label": "Name der erklärenden Person und Funktion",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      }
+    ],
+    "sha256": "6e8774961d6c20f83467952a13fe31b5ba2d484e70519df68be488b2f83ddaac",
+    "status": "fachlich-gepruefter-entwurf",
+    "reviewed": "2026-11-01",
+    "portal_published": false
+  },
+  {
+    "id": "05",
+    "title": "Indexmiete anpassen",
+    "file": "05 Indexmiete anpassen.pdf",
+    "pages": 2,
+    "fields": [
+      {
+        "name": "d05_p1_f001",
+        "label": "Absender und Anschrift",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d05_p1_f002",
+        "label": "An sämtliche Mietvertragsparteien und Zustellanschrift",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d05_p1_f003",
+        "label": "Wohnung und Mietvertragsdatum",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d05_p1_f004",
+        "label": "Ort und Datum",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d05_p1_f005",
+        "label": "Vertragsklausel und Datum der Indexvereinbarung",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d05_p1_f006",
+        "label": "Bisherige Nettokaltmiete in EUR und seit wann unverändert",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d05_p1_f007",
+        "label": "Bisheriger Bezugsmonat und Indexwert",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d05_p1_f008",
+        "label": "Neuer Bezugsmonat und Indexwert",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d05_p1_f009",
+        "label": "Einheitliches Basisjahr beider Indexwerte",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d05_p1_f010",
+        "label": "Veränderung in Prozent und in EUR pro Monat",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d05_p1_f011",
+        "label": "Neue Nettokaltmiete in EUR",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d05_p1_f012",
+        "label": "Unveränderte Vorauszahlungen sonstige Zahlungen und neue Gesamtsumme in EUR",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d05_p1_f013",
+        "label": "Ermittelter Zahlungsbeginn nach dokumentiertem Zugang",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d05_p1_f014",
+        "label": "Name der erklärenden Person und Funktion",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      }
+    ],
+    "sha256": "4b27a7209caa71c6b3a7463a0042f6aa9583cf163e1f4e9f9ca19f8893685f86",
+    "status": "fachlich-gepruefter-entwurf",
+    "reviewed": "2026-11-01",
+    "portal_published": false
+  },
+  {
+    "id": "06",
+    "title": "An eine vereinbarte Mietstaffel erinnern",
+    "file": "06 An eine vereinbarte Mietstaffel erinnern.pdf",
+    "pages": 2,
+    "fields": [
+      {
+        "name": "d06_p1_f001",
+        "label": "Absender und Anschrift",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d06_p1_f002",
+        "label": "An sämtliche Mietvertragsparteien und Zustellanschrift",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d06_p1_f003",
+        "label": "Wohnung und Mietvertragsdatum",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d06_p1_f004",
+        "label": "Ort und Datum",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d06_p1_f005",
+        "label": "Staffelvereinbarung vom und Vertragsstelle",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d06_p1_f006",
+        "label": "Bisherige monatliche Nettokaltmiete in EUR",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d06_p1_f007",
+        "label": "Vertraglich vereinbarter Beginn der nächsten Staffel",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d06_p1_f008",
+        "label": "Vereinbarte neue Nettokaltmiete in EUR",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d06_p1_f009",
+        "label": "Differenz zur bisherigen Nettokaltmiete in EUR",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d06_p1_f010",
+        "label": "Unveränderte Vorauszahlungen und sonstige Zahlungen in EUR",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d06_p1_f011",
+        "label": "Neue monatliche Gesamtzahlung in EUR",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d06_p1_f012",
+        "label": "Name der erklärenden Person und Funktion",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      }
+    ],
+    "sha256": "bc2f657bbb1d1ce5807e081b1507dc7a5099d9275830d588e1147e621dda09f0",
+    "status": "fachlich-gepruefter-entwurf",
+    "reviewed": "2026-11-01",
+    "portal_published": false
+  },
+  {
+    "id": "07",
+    "title": "Bescheinigung über Mietzahlungen",
+    "file": "07 Bescheinigung über Mietzahlungen.pdf",
+    "pages": 2,
+    "fields": [
+      {
+        "name": "d07_p1_f001",
+        "label": "Ausstellende Vermieterseite und Anschrift",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d07_p1_f002",
+        "label": "Mietpartei und betroffene Wohnung",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d07_p1_f003",
+        "label": "Mietbeginn und gegebenenfalls Mietende",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d07_p1_f004",
+        "label": "Ausgewerteter Zahlungszeitraum von bis und Kontostand zum",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d07_p1_f005",
+        "label": "Zum Prüfstand bestehen für den genannten Zeitraum keine fälligen offenen Mietzahlungen",
+        "page": 1,
+        "type": "checkbox"
+      },
+      {
+        "name": "d07_p1_f006",
+        "label": "Es bestehen die nachfolgend benannten offenen oder streitigen Positionen",
+        "page": 1,
+        "type": "checkbox"
+      },
+      {
+        "name": "d07_p1_f007",
+        "label": "Offene oder streitige Positionen Betrag Zeitraum und Einordnung",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d07_p1_f008",
+        "label": "Noch nicht abgerechnete Betriebs oder Heizkostenzeiträume",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d07_p1_f009",
+        "label": "Ergänzung nur soweit für diese Zahlungsauskunft erforderlich",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      }
+    ],
+    "sha256": "36b9172c3e17512223ec1d529263882c5eb84434d3da0214a8722471b3836015",
+    "status": "fachlich-gepruefter-entwurf",
+    "reviewed": "2026-11-01",
+    "portal_published": false
+  },
+  {
+    "id": "08",
+    "title": "Wohnungsübergabe und Rückgabe",
+    "file": "08 Wohnungsübergabe und Rückgabe.pdf",
+    "pages": 4,
+    "fields": [
+      {
+        "name": "d08_p1_f001",
+        "label": "Einzug",
+        "page": 1,
+        "type": "checkbox"
+      },
+      {
+        "name": "d08_p1_f002",
+        "label": "Auszug und Rückgabe",
+        "page": 1,
+        "type": "checkbox"
+      },
+      {
+        "name": "d08_p1_f003",
+        "label": "Wohnung Anschrift Lage Nebenräume Stellplatz",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d08_p1_f004",
+        "label": "Mietvertragsparteien",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d08_p1_f005",
+        "label": "Anwesende und Vertretungsfunktion",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d08_p1_f006",
+        "label": "Datum Uhrzeit Beginn und Ende der Begehung",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d08_p1_f007",
+        "label": "Tatsächliche Besitzübergabe Datum Uhrzeit und an wen",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d08_p1_f008",
+        "label": "Räume leer oder noch Gegenstände vorhanden und Zugangsmöglichkeiten",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d08_p1_f009",
+        "label": "Vergleichsunterlagen insbesondere Einzugsprotokoll und Fotoliste",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d08_p1_f010",
+        "label": "Nicht besichtigte Bereiche und Gründe",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d08_p2_f011",
+        "label": "Raum 1 Bauteil Zustand und Foto-ID",
+        "page": 2,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d08_p2_f012",
+        "label": "Raum 2 Bauteil Zustand und Foto-ID",
+        "page": 2,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d08_p2_f013",
+        "label": "Raum 3 Bauteil Zustand und Foto-ID",
+        "page": 2,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d08_p2_f014",
+        "label": "Raum 4 Bauteil Zustand und Foto-ID",
+        "page": 2,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d08_p2_f015",
+        "label": "Weitere Raumblätter Anzahl und Kennzeichnung",
+        "page": 2,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d08_p2_f016",
+        "label": "Abweichende Sichtweisen oder ungeklärte Ursachen",
+        "page": 2,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d08_p3_f017",
+        "label": "Zähler 1 Art Nummer Stand Einheit Zeit Foto",
+        "page": 3,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d08_p3_f018",
+        "label": "Zähler 2 Art Nummer Stand Einheit Zeit Foto",
+        "page": 3,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d08_p3_f019",
+        "label": "Zähler 3 Art Nummer Stand Einheit Zeit Foto",
+        "page": 3,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d08_p3_f020",
+        "label": "Zähler 4 Art Nummer Stand Einheit Zeit Foto",
+        "page": 3,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d08_p3_f021",
+        "label": "Zähler 5 Art Nummer Stand Einheit Zeit Foto",
+        "page": 3,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d08_p3_f022",
+        "label": "Schlüssel Transponder Anzahl je Art und übergeben an",
+        "page": 3,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d08_p3_f023",
+        "label": "Fehlende Schlüssel verbliebene Zugänge und ungeklärte Punkte",
+        "page": 3,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d08_p3_f024",
+        "label": "Anlagen Fotos Raumblätter jeweils mit Anzahl und Kennzeichnung",
+        "page": 3,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d08_p3_f025",
+        "label": "Ausfertigungen erhalten durch und am",
+        "page": 3,
+        "type": "text",
+        "multiline": false
+      }
+    ],
+    "sha256": "a2132d373ad6767639b8dffd991c978f3047b872ebc8836a8c310ad0b7099a50",
+    "status": "fachlich-gepruefter-entwurf",
+    "reviewed": "2026-11-01",
+    "portal_published": false
+  },
+  {
+    "id": "09",
+    "title": "Mieterselbstauskunft in drei Phasen",
+    "file": "09 Mieterselbstauskunft in drei Phasen.pdf",
+    "pages": 5,
+    "fields": [
+      {
+        "name": "d09_p1_f001",
+        "label": "Angebotene Wohnung und gewünschter Besichtigungstermin",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p1_f002",
+        "label": "Verantwortlicher Vermieter Name Anschrift Kontakt",
+        "page": 1,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d09_p1_f003",
+        "label": "Interessierte Person Vorname und Nachname",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p1_f004",
+        "label": "Ein erforderlicher Kontaktweg E-Mail oder Telefon",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p1_f005",
+        "label": "Aktuelle Anschrift nur soweit für den konkreten Zweck erforderlich",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p1_f006",
+        "label": "Datenschutzinformationen bereitgestellt am und Fassung",
+        "page": 1,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p2_f007",
+        "label": "Name künftige Vertragspartei und Wohnung",
+        "page": 2,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p2_f008",
+        "label": "Gewünschter Einzugstermin",
+        "page": 2,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p2_f009",
+        "label": "Anzahl einziehender Personen insgesamt Erwachsene Kinder",
+        "page": 2,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p2_f010",
+        "label": "Beruf und Arbeitgeber nur soweit zur Zahlungsfähigkeit erforderlich",
+        "page": 2,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p2_f011",
+        "label": "Miete wird vollständig durch eine öffentliche Stelle direkt an den Vermieter gezahlt",
+        "page": 2,
+        "type": "checkbox"
+      },
+      {
+        "name": "d09_p2_f012",
+        "label": "Monatliches verfügbares Budget für die Gesamtmiete oder ausreichende Betragsgrenze",
+        "page": 2,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p2_f013",
+        "label": "Nettoeinkommen oder ausreichende Betragsgrenze nur soweit zusätzlich erforderlich",
+        "page": 2,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p2_f014",
+        "label": "Zustimmungspflichtige Tierhaltung oder abweichende Nutzung soweit beabsichtigt",
+        "page": 2,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p2_f015",
+        "label": "Ort Datum und Name der erklärenden Person",
+        "page": 2,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p3_f016",
+        "label": "Auswahlentscheidung am und durch",
+        "page": 3,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p3_f017",
+        "label": "Name und Wohnung",
+        "page": 3,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p3_f018",
+        "label": "Erforderlicher Einkommens oder Zahlungsnachweis zur Einsicht vorgelegt",
+        "page": 3,
+        "type": "checkbox"
+      },
+      {
+        "name": "d09_p3_f019",
+        "label": "Erforderlicher speziell für Vermietung bestimmter Bonitätsnachweis vorgelegt",
+        "page": 3,
+        "type": "checkbox"
+      },
+      {
+        "name": "d09_p3_f020",
+        "label": "Welche Angaben wurden geprüft Ergebnis Datum und prüfende Person",
+        "page": 3,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d09_p3_f021",
+        "label": "Begründung falls eine notwendige Nachweiskopie gespeichert werden soll",
+        "page": 3,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d09_p3_f022",
+        "label": "Ort Datum und Name künftige Vertragspartei",
+        "page": 3,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p3_f023",
+        "label": "Abschluss Ablehnung oder Rücknahme am und nächster Löschprüftermin",
+        "page": 3,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p4_f024",
+        "label": "Verantwortlicher Name Anschrift Kontakt",
+        "page": 4,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d09_p4_f025",
+        "label": "Datenschutzbeauftragter und Kontakt falls bestellt sonst nicht bestellt",
+        "page": 4,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p4_f026",
+        "label": "Empfänger oder Kategorien insbesondere beauftragte Portal oder Verwaltungsdienste",
+        "page": 4,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d09_p4_f027",
+        "label": "Drittlandübermittlungen und Garantien oder ausdrücklich keine",
+        "page": 4,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p4_f028",
+        "label": "Speicherdauer oder konkrete Löschkriterien bei Absage Rücknahme und Vertragsschluss",
+        "page": 4,
+        "type": "text",
+        "multiline": true
+      },
+      {
+        "name": "d09_p4_f029",
+        "label": "Zuständige Datenschutzaufsicht und Kontakt oder Link",
+        "page": 4,
+        "type": "text",
+        "multiline": false
+      },
+      {
+        "name": "d09_p4_f030",
+        "label": "Gegebenenfalls gesonderte Abweichungen vom beschriebenen Verfahren",
+        "page": 4,
+        "type": "text",
+        "multiline": false
+      }
+    ],
+    "sha256": "209e22e10d9131ddfdd71352a795f71b08e7199d062eb62348f427bf110a541b",
+    "status": "fachlich-gepruefter-entwurf",
+    "reviewed": "2026-11-01",
+    "portal_published": false
+  }
+]
