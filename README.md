@@ -2,8 +2,8 @@
 
 Kundenportal von Zahlenwerk Immobilien. Privat.
 
-Aktueller Stand: Stufe 1, Auswertungskern. Liest Kontoauszüge (CAMT.052/053
-oder CSV) und eine Stammdaten-Datei und erstellt eine erste Einschätzung:
+Aktueller Stand: Stufe 1, Auswertungskern. Liest Kontoauszüge (CAMT.052/053,
+CSV oder PDF mit Textebene) und eine Stammdaten-Datei und erstellt eine erste Einschätzung:
 
 - Hausgeld je Einheit und Monat gegen das Soll (gezahlt, Teilzahlung, zu viel, fehlt)
 - Ausgaben nach Gruppen mit größten Empfängern

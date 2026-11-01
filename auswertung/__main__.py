@@ -8,6 +8,7 @@ from pathlib import Path
 from .bericht import als_json, als_markdown
 from .camt import lese_camt_datei
 from .csv_import import lese_csv_datei
+from .pdf_import import lese_pdf_datei
 from .einschaetzung import erstelle_einschaetzung
 from .stammdaten import lade_stammdaten
 
@@ -17,7 +18,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--stammdaten", required=True, help="TOML-Datei mit Objekt, Konten, Einheiten, Regeln")
     p.add_argument("--json", action="store_true", help="JSON statt Markdown ausgeben")
     p.add_argument("--csv-konto", default="", help="eigene IBAN für CSV-Dateien ohne Kontospalte")
-    p.add_argument("dateien", nargs="+", help="CAMT-XML- oder CSV-Dateien")
+    p.add_argument("dateien", nargs="+", help="CAMT-XML-, CSV- oder PDF-Dateien (PDF mit Textebene, Vorlage Volksbank)")
     a = p.parse_args(argv)
 
     sd = lade_stammdaten(a.stammdaten)
@@ -28,6 +29,8 @@ def main(argv: list[str] | None = None) -> int:
             auszuege.extend(lese_camt_datei(pfad))
         elif pfad.suffix.lower() == ".csv":
             auszuege.append(lese_csv_datei(pfad, konto_iban=a.csv_konto))
+        elif pfad.suffix.lower() == ".pdf":
+            auszuege.append(lese_pdf_datei(pfad))
         else:
             print(f"Übersprungen (unbekanntes Format): {pfad.name}", file=sys.stderr)
     ergebnis = erstelle_einschaetzung(auszuege, sd)
