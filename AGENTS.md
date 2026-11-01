@@ -39,7 +39,7 @@ Vault-Ordner `Projekte/Server und Kundenportal`.
 
 ## Befehle
 
-Python 3.12 oder neuer.
+Python 3.12 oder neuer; für PDF-Auszüge `pdftotext` (Paket poppler-utils).
 
 - Abhängigkeiten: `pip install -e ".[test]"`
 - Tests: `python -m pytest`

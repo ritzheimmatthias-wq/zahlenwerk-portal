@@ -1,0 +1,54 @@
+                                     Beispielbank eG (erfunden)
+                                     Musterweg 1 - 12345 Musterstadt
+                                     Tel. 01234 000-0000   BLZ 999 999 99
+
+
+
+                                                                                                               Kontokorrent
+                                                                                                               EUR-Konto           Kontonummer 0000004711
+
+                 Postfach 1, 12345 Musterstadt
+                                                                                                               Kontoauszug                          Nr.    12/2025
+                                                                                                               erstellt am 31.12.2025   23:43   Blatt     1 von 2
+
+                                                                                                               IBAN: DE99 9999 9999 0000 0047 11 BIC: BEISPIELXXX
+                 WEG Beispiel                                                                                  Ihr Kreditrahmen                              0,00
+                 Musterweg 1
+                 12345 Musterstadt
+
+
+
+
+            Bu-Tag     Wert       Vorgang
+                                                alter Kontostand vom 30.11.2025                                                            1.000,00 H
+            01.12. 01.12. Sepa-Gutschrift PN:801                                                                                                           310,00 H
+                          Eigentuemer 1 (Beispiel)
+                          Hausgeld WE 1 12/2025
+            02.12. 02.12. Basislastschrift PN:931                                                                                            1.235,00 S
+                          STADTWERKE
+                          Abschlag Strom Gas 12/2025 EREF: 0000000000 MREF: M0000
+                          0000 CRED: DE00ZZZ00000000000
+
+                                                                                          Übertrag auf Blatt 2                                  75,00 H
+0580
+000
+K00000000
+5M                                  Bitte beachten Sie die Hinweise auf der Rückseite oder am Ende des Dokuments
+                              Beispielbank eG (erfunden)
+                              Musterweg 1 - 12345 Musterstadt
+
+
+
+                                                                                                        Kontokorrent
+                                                                                                        EUR-Konto          Kontonummer 0000004711
+            WEG Beispiel
+                                                                                                        Kontoauszug                           Nr. 12/2025
+                                                                                                        erstellt am 31.12.2025   23:43    Blatt     2 von 2
+
+            Bu-Tag     Wert       Vorgang
+                                                        Übertrag von Blatt 1                                                              75,00 H
+            15.12. 15.12. Echtzeitüberweisung PN:801                                                                                       400,00 S
+                          WEG Beispiel Ruecklage
+                          Zufuehrung Erhaltungsruecklage
+            30.12. 31.12. Abschluss PN:905                                                                                                  17,90 S
+                                                          neuer Kontostand vom 31.12.2025             342,90 S
