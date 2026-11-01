@@ -10,7 +10,8 @@ requires-python = ">=3.12"
 dependencies = ["defusedxml>=0.7.1"]
 
 [project.optional-dependencies]
-test = ["pytest>=8"]
+pdf = ["weasyprint>=68"]
+test = ["pytest>=8", "weasyprint>=68"]
 
 [tool.setuptools]
 packages = ["auswertung"]

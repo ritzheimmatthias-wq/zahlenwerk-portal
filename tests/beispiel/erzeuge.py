@@ -105,6 +105,13 @@ STAMMDATEN = f'''# Erfundenes Beispielobjekt für Tests
 name = "WEG Lindenstraße 12–14 (Beispiel)"
 jahr = {JAHR}
 
+[steckbrief]
+Anschrift = "Lindenstraße 12–14, 12345 Musterstadt"
+Baujahr = "1972"
+Verwaltung = "selbstverwaltet seit 2024"
+Wirtschaftsjahr = "Kalenderjahr"
+Heizung = "Gas-Zentralheizung"
+
 [[konten]]
 iban = "{GIRO}"
 art = "Girokonto"

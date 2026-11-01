@@ -47,6 +47,7 @@ class Stammdaten:
     konten: dict[str, str]  # IBAN -> Art (z. B. Giro, Rücklage)
     einheiten: list[Einheit]
     kostengruppen: list[Kostengruppe] = field(default_factory=list)
+    steckbrief: dict[str, str] = field(default_factory=dict)  # freie Angaben, Reihenfolge wie in der Datei
 
 
 def lade_stammdaten(pfad: str | Path) -> Stammdaten:
@@ -73,4 +74,5 @@ def lade_stammdaten(pfad: str | Path) -> Stammdaten:
             Kostengruppe(k["gruppe"], tuple(m.lower() for m in k["muster"]))
             for k in d.get("kostengruppen", [])
         ],
+        steckbrief={str(k): str(v) for k, v in d.get("steckbrief", {}).items()},
     )

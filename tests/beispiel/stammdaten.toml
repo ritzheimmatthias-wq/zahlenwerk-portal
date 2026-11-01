@@ -3,6 +3,13 @@
 name = "WEG Lindenstraße 12–14 (Beispiel)"
 jahr = 2025
 
+[steckbrief]
+Anschrift = "Lindenstraße 12–14, 12345 Musterstadt"
+Baujahr = "1972"
+Verwaltung = "selbstverwaltet seit 2024"
+Wirtschaftsjahr = "Kalenderjahr"
+Heizung = "Gas-Zentralheizung"
+
 [[konten]]
 iban = "DE99999999990000004711"
 art = "Girokonto"
