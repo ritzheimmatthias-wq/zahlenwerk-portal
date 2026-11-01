@@ -5,7 +5,7 @@ PORTAL_SECRET_KEY, PORTAL_MASTER_KEY, PORTAL_HOSTS, PORTAL_BASIS_URL, PORTAL_DEB
 PORTAL_DB_NAME, PORTAL_DB_USER, PORTAL_DB_PASSWORD, PORTAL_DB_HOST, PORTAL_DB_PORT,
 PORTAL_DATEN, PORTAL_VIRENSCAN, PORTAL_CLAMD_SOCKET, PORTAL_CLAMD_HOST, PORTAL_CLAMD_PORT,
 PORTAL_MAIL_HOST, PORTAL_MAIL_PORT, PORTAL_MAIL_USER, PORTAL_MAIL_PASSWORD, PORTAL_MAIL_ABSENDER,
-PORTAL_MAIL_INTERN, PORTAL_TEST
+PORTAL_MAIL_INTERN, PORTAL_TEST, PORTAL_VORLAGEN_FUER_KUNDEN
 """
 from pathlib import Path
 import os
@@ -72,6 +72,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "kundenportal.kontext.portal",
             ]
         },
     }
@@ -163,6 +164,10 @@ EMAIL_USE_TLS = EMAIL_PORT == 587
 EMAIL_TIMEOUT = 20
 DEFAULT_FROM_EMAIL = env("PORTAL_MAIL_ABSENDER", "portal@zahlenwerk-immobilien.de")
 MAIL_INTERN = env("PORTAL_MAIL_INTERN", "")
+
+# Dokumentvorlagen (Wohnraumvermietung): Zahlenwerk sieht die Bibliothek immer,
+# Kunden erst nach ausdrücklicher Freigabe durch Matthias (PORTAL_VORLAGEN_FUER_KUNDEN=1).
+VORLAGEN_FUER_KUNDEN = env("PORTAL_VORLAGEN_FUER_KUNDEN") == "1"
 
 # Fristen
 CODE_GUELTIG_MINUTEN = 10

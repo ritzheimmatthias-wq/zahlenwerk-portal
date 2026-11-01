@@ -64,3 +64,11 @@ footer{max-width:1120px;margin:auto;padding:0 16px 2rem;font-size:.8rem;color:va
 .card.flat{border:0;padding:0}.stapel{display:grid;gap:1.25rem}.unten{align-self:end}
 .card{align-content:start}.inline select{width:auto}
 .list form.inline{gap:.4rem}
+.hinweise{margin:0;padding-left:1.1rem;display:grid;gap:.35rem}
+.angaben{margin:0;display:grid;grid-template-columns:minmax(7rem,auto) 1fr;gap:.35rem 1rem}
+.angaben dt{font-weight:600;color:var(--muted);font-size:.85rem}.angaben dd{margin:0}
+@media (max-width:480px){.angaben{grid-template-columns:1fr}.angaben dd{margin-bottom:.4rem}}
+.phasen{margin:0;padding-left:1.3rem;display:grid;gap:.4rem}.phasen li span{display:block}
+.downloads li>span{min-width:0;display:block}.downloads .sub{display:block;overflow-wrap:anywhere}
+@media (max-width:480px){.downloads li{grid-template-columns:1fr}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}

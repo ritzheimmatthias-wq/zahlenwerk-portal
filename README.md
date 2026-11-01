@@ -38,3 +38,18 @@ PORTAL_DEBUG=1 python manage.py runserver
 
 Im Entwicklungsmodus erscheinen E-Mails (z. B. der Anmeldecode) in der Konsole.
 Betrieb auf dem KVM-2: [betrieb/README.md](betrieb/README.md).
+
+### Dokumentvorlagen
+
+Unter `/vorlagen/` liegt nach der Anmeldung eine Bibliothek mit neun eigenen,
+ausfüllbaren Blankomustern zur Wohnraumvermietung (Prüfstand 01.11.2026). Die
+Dateien stammen unverändert aus dem Vault und liegen mit `manifest.json` unter
+`kundenportal/dokumentvorlagen_dateien/2026-11-01/`. Jede Auslieferung prüft die
+SHA-256-Prüfsumme. Je Vorlage gibt es die vollständige Fassung, eine Fassung ohne
+die Anwendungshilfe (letzte Seite) und die Markdown-Textfassung; die
+Mieterselbstauskunft zusätzlich getrennt nach Phase A, B und C. Das Portal füllt,
+speichert und versendet nichts.
+
+Zahlenwerk-Konten sehen die Bibliothek immer. Kunden erst, wenn
+`PORTAL_VORLAGEN_FUER_KUNDEN=1` gesetzt ist, und das nur nach ausdrücklicher
+Freigabe durch Matthias.

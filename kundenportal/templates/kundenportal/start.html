@@ -19,4 +19,8 @@
   <div class="card"><p class="lead">Für Ihren Zugang ist noch kein Objekt freigegeben. Bitte wenden Sie sich an Zahlenwerk.</p></div>
 {% endfor %}
 </div>
+{% if vorlagen_fuer_kunden %}
+<a class="tile" href="{% url 'vorlagen' %}"><h2>Dokumentvorlagen für Vermieter</h2>
+  <span class="meta">Neun ausfüllbare Blankomuster zur Wohnraumvermietung, zum Beispiel Wohnungsgeberbestätigung, Indexmiete und Übergabeprotokoll.</span></a>
+{% endif %}
 {% endblock %}

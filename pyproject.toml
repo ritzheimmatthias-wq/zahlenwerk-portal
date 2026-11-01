@@ -11,16 +11,16 @@ dependencies = ["defusedxml>=0.7.1"]
 
 [project.optional-dependencies]
 pdf = ["weasyprint>=68"]
-portal = ["django>=5.2,<6", "argon2-cffi>=23", "cryptography>=42", "whitenoise>=6.6"]
+portal = ["django>=5.2,<6", "argon2-cffi>=23", "cryptography>=42", "whitenoise>=6.6", "pypdf>=6"]
 betrieb = ["gunicorn>=23", "psycopg[binary]>=3.2"]
-test = ["pytest>=8", "pytest-django>=4.9", "weasyprint>=68", "django>=5.2,<6", "argon2-cffi>=23", "cryptography>=42", "whitenoise>=6.6"]
+test = ["pytest>=8", "pytest-django>=4.9", "weasyprint>=68", "django>=5.2,<6", "argon2-cffi>=23", "cryptography>=42", "whitenoise>=6.6", "pypdf>=6"]
 
 [tool.setuptools]
 packages = ["auswertung", "portal", "kundenportal"]
 include-package-data = true
 
 [tool.setuptools.package-data]
-kundenportal = ["templates/**/*.html", "static/**/*", "migrations/*.py", "management/**/*.py"]
+kundenportal = ["templates/**/*.html", "static/**/*", "dokumentvorlagen_dateien/**/*", "migrations/*.py", "management/**/*.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
