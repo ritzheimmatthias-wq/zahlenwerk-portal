@@ -16,3 +16,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y poppler-utils libpango-1.0-0 libpangoft2-1.0-0 fonts-dejavu-core
       - run: pip install -e ".[test]"
       - run: python -m pytest -q
+      - name: Django-Prüfung und fehlende Migrationen
+        run: |
+          PORTAL_TEST=1 python manage.py check
+          PORTAL_TEST=1 python manage.py makemigrations --check --dry-run

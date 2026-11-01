@@ -1,0 +1,27 @@
+{% load static %}<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{% block titel %}Kundenportal{% endblock %} · Zahlenwerk Immobilien</title>
+<link rel="stylesheet" href="{% static 'kundenportal/portal.css' %}">
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <a class="brand" href="/">Zahlenwerk Immobilien<small>{% if user.is_staff %}Interner Bereich{% else %}Kundenportal{% endif %}</small></a>
+  <div class="who">
+    {% if user.is_authenticated %}
+      {% if user.is_staff %}<a href="{% url 'intern' %}">Eingang</a><a href="{% url 'intern_anlegen' %}">Objekt anlegen</a>{% endif %}
+      <span>{{ user.email }}</span>
+      <form method="post" action="{% url 'abmelden' %}">{% csrf_token %}<button class="btn ghost small" type="submit">Abmelden</button></form>
+    {% else %}<span>Nicht angemeldet</span>{% endif %}
+  </div>
+</div></header>
+<main>
+{% for m in messages %}<div class="note{% if m.level_tag == 'error' %} fehler{% endif %}" role="status">{{ m }}</div>{% endfor %}
+{% block inhalt %}{% endblock %}
+</main>
+<footer>Zahlenwerk Immobilien · <a href="https://zahlenwerk-immobilien.de">zahlenwerk-immobilien.de</a> · Ihre Dateien werden verschlüsselt gespeichert.</footer>
+</body>
+</html>
