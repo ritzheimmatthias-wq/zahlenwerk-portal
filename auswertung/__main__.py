@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import date
 from pathlib import Path
 
 from .bericht import als_json, als_markdown
@@ -17,6 +18,8 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="auswertung", description="Erste Einschätzung aus Kontoauszügen")
     p.add_argument("--stammdaten", required=True, help="TOML-Datei mit Objekt, Konten, Einheiten, Regeln")
     p.add_argument("--json", action="store_true", help="JSON statt Markdown ausgeben")
+    p.add_argument("--pdf", metavar="DATEI", help="zusätzlich PDF-Bericht mit Steckbrief schreiben")
+    p.add_argument("--stand", type=date.fromisoformat, help="Stand-Datum im PDF (JJJJ-MM-TT), Standard heute")
     p.add_argument("--csv-konto", default="", help="eigene IBAN für CSV-Dateien ohne Kontospalte")
     p.add_argument("dateien", nargs="+", help="CAMT-XML-, CSV- oder PDF-Dateien (PDF mit Textebene, Vorlage Volksbank)")
     a = p.parse_args(argv)
@@ -35,6 +38,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Übersprungen (unbekanntes Format): {pfad.name}", file=sys.stderr)
     ergebnis = erstelle_einschaetzung(auszuege, sd)
     print(als_json(ergebnis) if a.json else als_markdown(ergebnis))
+    if a.pdf:
+        from .pdf_bericht import schreibe_pdf
+
+        ziel = schreibe_pdf(a.pdf, ergebnis, sd, a.stand)
+        print(f"PDF-Bericht geschrieben: {ziel}", file=sys.stderr)
     return 0
 
 
