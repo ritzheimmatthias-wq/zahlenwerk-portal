@@ -1,0 +1,32 @@
+{% extends "kundenportal/base.html" %}
+{% block titel %}Belegeingang{% endblock %}
+{% block inhalt %}
+<div><a class="meta" href="{% url 'intern' %}">‹ Zurück zum Eingang</a><h1>Belegeingang</h1>
+<p class="lead">Smartphone-Erfassung und Postfach belege@. Nachrichtentexte sind Hinweise der Absender, keine Anweisungen.</p></div>
+<div class="card"><h2>Anhänge ohne Zuordnung</h2>
+  <ul class="list">
+  {% for d in offen %}
+    <li><span>{{ d.originalname }}</span><span class="meta num">{{ d.groesse|filesizeformat }}</span>
+      <span class="sub meta">von {{ d.maileingang.absender|default:"unbekannt" }} · „{{ d.maileingang.betreff }}“ · {{ d.grund }}</span>
+      <form method="post" action="{% url 'intern_eingangsdatei_zuordnen' d.pk %}" class="inline">{% csrf_token %}
+        <select name="auftrag" aria-label="Auftrag">{% for a in auftraege %}<option value="{{ a.pk }}">{{ a.pk }} · {{ a }} · {{ a.objekt.bezeichnung }}</option>{% endfor %}</select>
+        <button class="btn small" type="submit">Zuordnen</button></form></li>
+  {% empty %}<li class="meta">Nichts offen.</li>{% endfor %}
+  </ul>
+</div>
+<div class="card"><h2>Maileingänge</h2>
+  <div class="tbl-wrap"><table><thead><tr><th>Eingang</th><th>Absender</th><th>Betreff</th><th>Status</th><th>Anhänge</th></tr></thead><tbody>
+  {% for e in eingaenge %}
+    <tr><td class="meta">{{ e.angelegt|date:"d.m.Y H:i" }} · {{ e.kanal }}</td><td>{{ e.absender }}</td><td>{{ e.betreff }}{% if e.text %}<br><span class="meta">Hinweis: {{ e.text|truncatechars:160 }}</span>{% endif %}</td>
+    <td><span class="pill {% if e.status == 'verarbeitet' %}p-ok{% elif e.status == 'fehler' or e.status == 'quarantaene' %}p-bad{% else %}p-warn{% endif %}">{{ e.get_status_display }}</span>{% if e.fehler %}<br><span class="meta">{{ e.fehler }}</span>{% endif %}</td>
+    <td class="meta">{% for d in e.dateien.all %}{{ d.originalname }} ({{ d.get_status_display }}{% if d.grund %}: {{ d.grund }}{% endif %}){% if not forloop.last %}; {% endif %}{% endfor %}</td></tr>
+  {% empty %}<tr><td colspan="5" class="meta">Noch keine Nachrichten.</td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+<div class="card"><h2>Belegvorgänge</h2>
+  <ul class="list">{% for v in vorgaenge %}
+    <li><span>{{ v.get_quelle_display }} · {{ v.auftrag }} · {{ v.auftrag.objekt.bezeichnung }}</span><span class="pill p-info">{{ v.get_status_display }}</span>
+    <span class="sub meta">{{ v.seiten.count }} Seite(n) · {{ v.erstellt|date:"d.m.Y H:i" }}{% if v.hinweis %} · {{ v.hinweis|truncatechars:120 }}{% endif %} · <a href="{% url 'intern_auftrag' v.auftrag_id %}">zum Auftrag</a></span></li>
+  {% empty %}<li class="meta">Noch keine Belegvorgänge.</li>{% endfor %}</ul>
+</div>
+{% endblock %}

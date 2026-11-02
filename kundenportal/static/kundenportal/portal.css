@@ -72,3 +72,9 @@ footer{max-width:1120px;margin:auto;padding:0 16px 2rem;font-size:.8rem;color:va
 .downloads li>span{min-width:0;display:block}.downloads .sub{display:block;overflow-wrap:anywhere}
 @media (max-width:480px){.downloads li{grid-template-columns:1fr}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+/* Smartphone-Belegerfassung */
+.seitenliste{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,150px),1fr));gap:.75rem}
+.seite{border:1px solid var(--line);border-radius:8px;padding:.5rem;display:grid;gap:.4rem;min-width:0;align-content:start}
+.seitenbild{width:100%;height:auto;border-radius:4px;background:var(--line)}
+.seite .row{flex-wrap:wrap;gap:.3rem}.schnitt{display:grid;gap:.3rem}.schnitt[hidden]{display:none}
+.schnitt input[type=range]{width:100%}

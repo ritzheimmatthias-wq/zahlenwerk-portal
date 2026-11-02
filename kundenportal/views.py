@@ -7,20 +7,22 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from . import dokumentvorlagen, mails, tresor, virenscan
+from . import abrechnung, belege, dokumentvorlagen, mails, tresor
 from .dateipruefung import Abgelehnt, ERLAUBT_TEXT, pruefe_datei, sicherer_name
 from .forms import (
     AnlegenForm, AnmeldeForm, CodeForm, EinheitFormSet, ErgebnisForm, KontoFormSet, PasswortForm, PunktForm, UploadForm,
 )
 from .models import (
-    Auftrag, Benutzer, Checklistenpunkt, Dokument, Einheit, Freigabe, Konto, Kunde, Objekt, Protokoll, protokoll,
+    Abrechnungslauf, Auftrag, Belegvorgang, Benutzer, Checklistenpunkt, Dokument, Einheit, Eingangsdatei, Freigabe, Konto,
+    Kunde, Maileingang, Objekt, Protokoll, Report, protokoll,
 )
 from .sicherheit import (
     download_token, finde_einladung, lies_download_token, neue_einladung, neuer_code, pruefe_code,
@@ -147,30 +149,8 @@ def _sichtbare_dokumente(user, auftrag: Auftrag):
 
 # --- Ablage -----------------------------------------------------------------------
 
-def _ablegen(datei, *, auftrag, punkt, richtung, benutzer, zeitraum="", hinweis="") -> Dokument:
-    if datei.size > settings.MAX_DATEIGROESSE:
-        raise Abgelehnt("Die Datei ist größer als 50 MB. Bitte teilen Sie sie auf.")
-    name = sicherer_name(datei.name)
-    daten = datei.read()
-    ergebnis = pruefe_datei(name, daten)
-    try:
-        sauber, befund = virenscan.pruefen(daten)
-    except virenscan.ScanFehler:
-        protokoll("virenscan_fehler", benutzer, f"auftrag:{auftrag.pk}")
-        raise Abgelehnt("Die Datei konnte gerade nicht geprüft werden. Bitte versuchen Sie es in einigen Minuten erneut.") from None
-    if not sauber:
-        protokoll("virenfund", benutzer, f"auftrag:{auftrag.pk}", befund)
-        raise Abgelehnt("In der Datei wurde Schadsoftware gefunden. Sie wurde nicht gespeichert.")
-    dok = Dokument(
-        auftrag=auftrag, punkt=punkt, richtung=richtung, originalname=name, dateityp=ergebnis.dateityp,
-        groesse=len(daten), sha256=hashlib.sha256(daten).hexdigest(),
-        scan="sauber" if befund == "sauber" else "nicht_geprueft",
-        zeitraum=zeitraum, hinweis=hinweis, hochgeladen_von=benutzer,
-    )
-    dok.schluessel = tresor.ablegen(dok.speicher_id, daten)
-    dok.save()
-    protokoll("upload", benutzer, f"dokument:{dok.pk}", f"auftrag:{auftrag.pk} typ:{dok.dateityp} groesse:{dok.groesse}")
-    return dok
+def _ablegen(datei, **kwargs) -> Dokument:
+    return belege.datei_ablegen(datei, **kwargs)
 
 
 # --- Kundensicht ------------------------------------------------------------------
@@ -192,7 +172,9 @@ def start(request):
 
 def objekt(request, pk: int):
     o = get_object_or_404(_objekte(request.user), pk=pk)
-    return render(request, "kundenportal/objekt.html", {"o": o, "auftraege": [(a, *a.fortschritt()) for a in o.auftraege.all()]})
+    berichte = o.reports.all() if request.user.is_staff else o.reports.filter(status="freigegeben")
+    return render(request, "kundenportal/objekt.html", {"o": o, "auftraege": [(a, *a.fortschritt()) for a in o.auftraege.all()],
+                                                        "berichte": berichte})
 
 
 def auftrag(request, pk: int):
@@ -221,6 +203,7 @@ def auftrag(request, pk: int):
     return render(request, "kundenportal/auftrag.html", {
         "a": a, "form": form, "offen": offen, "fertig": fertig, "gesamt": gesamt, "erlaubt": ERLAUBT_TEXT,
         "ergebnisse": dok.filter(richtung="ergebnis"), "eigene": dok.filter(richtung="kunde"),
+        "mobil": _mobil_sichtbar(request.user),
     })
 
 
@@ -494,3 +477,252 @@ def intern_loeschen(request, pk: int):
     n = loesche_dokumente(a.dokumente.filter(geloescht__isnull=True), request.user, "manuell")
     messages.success(request, f"{n} Dokumente gelöscht.")
     return redirect("intern_auftrag", pk=a.pk)
+
+
+# --- Jahresreports (Portalansicht und PDF) ------------------------------------------
+
+def bericht_css(request):
+    from betriebskosten.reportausgabe import REPORT_CSS
+
+    return HttpResponse(REPORT_CSS, content_type="text/css; charset=utf-8")
+
+
+def _bericht(user, pk: int) -> Report:
+    r = get_object_or_404(Report.objects.select_related("objekt"), pk=pk)
+    if not _objekte(user).filter(pk=r.objekt_id).exists():
+        raise Http404
+    if not user.is_staff and not abrechnung.fuer_kunde_sichtbar(r):
+        raise Http404
+    return r
+
+
+def bericht(request, pk: int):
+    from betriebskosten.reportausgabe import kostenverlauf_html, vorauszahlung_html
+
+    r = _bericht(request.user, pk)
+    zurueck = reverse("intern_abrechnung_objekt", args=[r.objekt_id]) if request.user.is_staff else reverse("objekt", args=[r.objekt_id])
+    portal = {"css_href": reverse("bericht_css"), "zurueck": zurueck}
+    if r.art == "vorauszahlung":
+        mv = request.GET.get("mv") or None
+        try:
+            html = vorauszahlung_html(r.snapshot(), r.status, mv, **portal)
+        except ValueError:
+            raise Http404 from None
+    else:
+        html = kostenverlauf_html(r.snapshot(), r.status, **portal)
+    protokoll("report_ansicht", request.user, f"report:{r.pk}")
+    return HttpResponse(html)
+
+
+def bericht_pdf(request, pk: int):
+    from betriebskosten.reportausgabe import report_pdf
+
+    r = _bericht(request.user, pk)
+    inhalt = report_pdf(r.snapshot(), r.status)
+    protokoll("report_download", request.user, f"report:{r.pk}")
+    antwort = HttpResponse(inhalt, content_type="application/pdf")
+    name = f"{r.get_art_display()} {r.objekt.bezeichnung} Nr {r.nummer}.pdf"
+    antwort["Content-Disposition"] = f"attachment; filename*=UTF-8''{_url_name(name)}"
+    return antwort
+
+
+# --- Smartphone-Belegerfassung --------------------------------------------------------
+
+def _mobil_sichtbar(user) -> bool:
+    return user.is_staff or settings.MOBILE_ERFASSUNG_FUER_KUNDEN
+
+
+def _offener_auftrag(user, pk: int) -> Auftrag:
+    a = _auftrag(user, pk)
+    if not _mobil_sichtbar(user) or a.status == "abgeschlossen":
+        raise Http404
+    return a
+
+
+def _vorgang(user, vid: int) -> Belegvorgang:
+    v = get_object_or_404(Belegvorgang, pk=vid)
+    _offener_auftrag(user, v.auftrag_id)
+    if v.erstellt_von_id != user.pk:
+        raise Http404
+    return v
+
+
+def beleg_erfassen(request, pk: int):
+    """Mehrseitiger Beleg per Smartphone. Ohne JavaScript: mehrere Fotos in einem Formular."""
+    a = _offener_auftrag(request.user, pk)
+    fehler = ""
+    if request.method == "POST":
+        dateien = request.FILES.getlist("seiten")
+        if not dateien:
+            fehler = "Bitte mindestens ein Foto oder PDF auswählen."
+        elif len(dateien) > belege.MAX_SEITEN:
+            fehler = f"Höchstens {belege.MAX_SEITEN} Seiten je Beleg."
+        else:
+            v = belege.vorgang_anlegen(a, request.user, "mobil", request.POST.get("hinweis", ""))
+            try:
+                for i, f in enumerate(dateien, 1):
+                    belege.seite_ablegen(v, f, i, request.user)
+                belege.vorgang_abschliessen(v, request.user)
+            except Abgelehnt as e:
+                fehler = f"{e} Der Beleg ist unvollständig; bitte erneut senden."
+            else:
+                messages.success(request, f"Beleg mit {len(dateien)} Seite(n) ist eingegangen. Zahlenwerk prüft ihn.")
+                return redirect("auftrag", pk=a.pk)
+    return render(request, "kundenportal/beleg_erfassen.html", {"a": a, "fehler": fehler, "max_seiten": belege.MAX_SEITEN})
+
+
+@require_POST
+def beleg_vorgang(request, pk: int):
+    a = _offener_auftrag(request.user, pk)
+    v = belege.vorgang_anlegen(a, request.user, "mobil", request.POST.get("hinweis", ""))
+    return JsonResponse({"vorgang": v.pk, "eingang": str(v.eingang_id)})
+
+
+@require_POST
+def beleg_seite(request, vid: int):
+    v = _vorgang(request.user, vid)
+    datei = request.FILES.get("datei")
+    try:
+        seite = int(request.POST.get("seite", "0"))
+    except ValueError:
+        seite = 0
+    if datei is None:
+        return JsonResponse({"fehler": "Keine Datei übertragen."}, status=400)
+    try:
+        dok, neu = belege.seite_ablegen(v, datei, seite, request.user, request.POST.get("sha256", "")[:64])
+    except Abgelehnt as e:
+        return JsonResponse({"fehler": str(e)}, status=422)
+    return JsonResponse({"seite": seite, "neu": neu, "sha256": dok.sha256})
+
+
+@require_POST
+def beleg_abschliessen(request, vid: int):
+    v = _vorgang(request.user, vid)
+    try:
+        belege.vorgang_abschliessen(v, request.user)
+    except Abgelehnt as e:
+        return JsonResponse({"fehler": str(e)}, status=422)
+    return JsonResponse({"status": v.status, "seiten": v.seiten.count(), "weiter": reverse("auftrag", args=[v.auftrag_id])})
+
+
+# --- Eingang belege@ (n8n oder IMAP-Rückfallweg) ----------------------------------------
+
+@csrf_exempt
+@require_POST
+def eingang_belege(request):
+    """Signierter Eingang aus n8n. Felder: meta (JSON), anhang (Dateien). Header X-Zahlenwerk-Zeit, X-Zahlenwerk-Signatur."""
+    meta_text = request.POST.get("meta", "")
+    try:
+        belege.pruefe_signatur(request.headers.get("X-Zahlenwerk-Zeit", ""), meta_text, request.headers.get("X-Zahlenwerk-Signatur", ""))
+    except belege.Signaturfehler as e:
+        protokoll("eingang_abgewiesen", None, "belege", str(e))
+        return JsonResponse({"fehler": "nicht autorisiert"}, status=403 if settings.BELEGE_WEBHOOK_GEHEIMNIS else 404)
+    try:
+        meta = belege.meta_lesen(meta_text)
+        erwartet = {(x["name"], x["sha256"]) for x in meta.get("anhaenge", [])}
+        anhaenge = [belege.Anhang(f.name, f.read()) for f in request.FILES.getlist("anhang")]
+        if {(x.name, hashlib.sha256(x.daten).hexdigest()) for x in anhaenge} != erwartet:
+            return JsonResponse({"fehler": "Anhänge passen nicht zur signierten Liste"}, status=400)
+        empfangen = None
+        if meta.get("empfangen"):
+            from datetime import datetime
+
+            empfangen = datetime.fromisoformat(meta["empfangen"])
+    except (ValueError, KeyError, TypeError):
+        return JsonResponse({"fehler": "Ungültige Angaben"}, status=400)
+    try:
+        eingang, neu = belege.verarbeite_eingang(
+            message_id=meta.get("message_id", ""), absender=meta.get("absender", ""), betreff=meta.get("betreff", ""),
+            text=meta.get("text", ""), empfangen=empfangen, anhaenge=anhaenge, kanal="webhook")
+    except ValueError as e:
+        return JsonResponse({"fehler": str(e)}, status=400)
+    except Exception:
+        return JsonResponse({"fehler": "Verarbeitung fehlgeschlagen, bitte erneut senden"}, status=500)
+    return JsonResponse({"eingang": str(eingang.eingang_id), "status": eingang.status, "neu": neu})
+
+
+# --- Intern: Abrechnung, Reports, Belegeingang -----------------------------------------
+
+def intern_abrechnung_objekt(request, pk: int):
+    o = get_object_or_404(Objekt, pk=pk)
+    auftraege = o.auftraege.filter(leistung="betriebskosten").prefetch_related("abrechnungslaeufe")
+    return render(request, "kundenportal/intern/abrechnung.html", {
+        "o": o, "auftraege": auftraege, "reports": o.reports.prefetch_related("statuswechsel__benutzer"),
+    })
+
+
+@require_POST
+def intern_lauf_anlegen(request, pk: int):
+    a = get_object_or_404(Auftrag, pk=pk)
+    datei = request.FILES.get("daten")
+    if datei is None:
+        messages.error(request, "Bitte die Abrechnungsdaten (TOML) auswählen.")
+    else:
+        try:
+            lauf, neu = abrechnung.lauf_anlegen(a, datei.read(), request.user)
+        except abrechnung.Fachfehler as e:
+            messages.error(request, str(e))
+        else:
+            messages.success(request, f"Berechnungsstand Version {lauf.version} {'angelegt' if neu else 'unverändert (gleiche Eingabe)'}: "
+                                      f"{lauf.rote_warnungen} rote, {lauf.gelbe_warnungen} gelbe Warnungen.")
+    return redirect("intern_abrechnung_objekt", pk=a.objekt_id)
+
+
+@require_POST
+def intern_lauf_status(request, pk: int):
+    lauf = get_object_or_404(Abrechnungslauf, pk=pk)
+    try:
+        abrechnung.lauf_status(lauf, request.POST.get("status", ""), request.user, request.POST.get("notiz", ""))
+    except abrechnung.Fachfehler as e:
+        messages.error(request, str(e))
+    return redirect("intern_abrechnung_objekt", pk=lauf.auftrag.objekt_id)
+
+
+@require_POST
+def intern_report_erstellen(request, pk: int):
+    o = get_object_or_404(Objekt, pk=pk)
+    regeln = request.FILES.get("regeln")
+    try:
+        konfig = abrechnung.konfiguration(regeln.read() if regeln else None)
+        if request.POST.get("art") == "vorauszahlung":
+            lauf = get_object_or_404(Abrechnungslauf, pk=request.POST.get("lauf"), auftrag__objekt=o)
+            r, neu = abrechnung.vorauszahlungsreport(lauf, konfig, request.user)
+        else:
+            r, neu = abrechnung.kostenverlaufsbericht(o, konfig, request.user)
+    except abrechnung.Fachfehler as e:
+        messages.error(request, str(e))
+    else:
+        messages.success(request, f"{r.get_art_display()} Nr. {r.nummer} {'erstellt' if neu else 'unverändert'}.")
+    return redirect("intern_abrechnung_objekt", pk=o.pk)
+
+
+@require_POST
+def intern_report_status(request, pk: int):
+    r = get_object_or_404(Report, pk=pk)
+    try:
+        abrechnung.report_status(r, request.POST.get("status", ""), request.user, request.POST.get("notiz", ""))
+    except abrechnung.Fachfehler as e:
+        messages.error(request, str(e))
+    return redirect("intern_abrechnung_objekt", pk=r.objekt_id)
+
+
+def intern_belege(request):
+    return render(request, "kundenportal/intern/belege.html", {
+        "eingaenge": Maileingang.objects.select_related("auftrag__objekt").prefetch_related("dateien")[:50],
+        "offen": Eingangsdatei.objects.filter(status="zuordnung_offen").select_related("maileingang"),
+        "auftraege": Auftrag.objects.exclude(status="abgeschlossen").select_related("objekt"),
+        "vorgaenge": Belegvorgang.objects.select_related("auftrag__objekt", "erstellt_von").prefetch_related("seiten")[:30],
+    })
+
+
+@require_POST
+def intern_eingangsdatei_zuordnen(request, pk: int):
+    d = get_object_or_404(Eingangsdatei, pk=pk)
+    a = get_object_or_404(Auftrag, pk=request.POST.get("auftrag"))
+    try:
+        belege.eingangsdatei_zuordnen(d, a, request.user)
+    except Abgelehnt as e:
+        messages.error(request, str(e))
+    else:
+        messages.success(request, f"{d.originalname} ist Auftrag {a.pk} zugeordnet.")
+    return redirect("intern_belege")

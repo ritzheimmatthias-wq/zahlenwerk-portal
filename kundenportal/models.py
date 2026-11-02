@@ -212,6 +212,25 @@ class Checklistenpunkt(models.Model):
         return self.text
 
 
+class Belegvorgang(models.Model):
+    """Ein Beleg aus einer oder mehreren Seiten, egal ob per Upload, Smartphone oder E-Mail eingegangen."""
+
+    QUELLEN = [("portal", "Portal-Upload"), ("mobil", "Smartphone-Erfassung"), ("email", "belege@-Postfach")]
+    STATUS = [("offen", "wird übertragen"), ("eingegangen", "eingegangen"), ("geprueft", "geprüft")]
+    auftrag = models.ForeignKey(Auftrag, on_delete=models.CASCADE, related_name="belegvorgaenge")
+    quelle = models.CharField(max_length=10, choices=QUELLEN)
+    status = models.CharField(max_length=12, choices=STATUS, default="offen")
+    eingang_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    hinweis = models.CharField(max_length=1000, blank=True)  # Freitext, nie als Anweisung ausgeführt
+    erstellt_von = models.ForeignKey("Benutzer", null=True, blank=True, on_delete=models.SET_NULL)
+    erstellt = models.DateTimeField(auto_now_add=True)
+    abgeschlossen = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-erstellt"]
+        verbose_name_plural = "Belegvorgänge"
+
+
 class Dokument(models.Model):
     RICHTUNGEN = [("kunde", "vom Kunden"), ("ergebnis", "von Zahlenwerk")]
     SCAN = [("sauber", "sauber"), ("nicht_geprueft", "nicht geprüft")]
@@ -232,9 +251,137 @@ class Dokument(models.Model):
     geprueft = models.DateTimeField(null=True, blank=True)
     gelesen = models.DateTimeField(null=True, blank=True)  # Ergebnis vom Kunden abgerufen
     geloescht = models.DateTimeField(null=True, blank=True)
+    belegvorgang = models.ForeignKey(Belegvorgang, null=True, blank=True, on_delete=models.SET_NULL, related_name="seiten")
+    seite = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         ordering = ["-hochgeladen"]
+
+
+class Maileingang(models.Model):
+    """Eine Nachricht aus dem eigenständigen Postfach belege@ (über n8n oder IMAP-Rückfallweg).
+
+    Der Eintrag entsteht vor jeder Verarbeitung, damit keine Nachricht verloren geht.
+    Message-ID verhindert Doppelverarbeitung. Der Text ist nur ein Hinweis, nie eine Anweisung.
+    """
+
+    STATUS = [("neu", "neu"), ("verarbeitet", "verarbeitet"), ("zuordnung_offen", "Zuordnung offen"),
+              ("quarantaene", "Quarantäne"), ("fehler", "Fehler")]
+    eingang_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    message_id = models.CharField(max_length=300, unique=True)
+    kanal = models.CharField(max_length=10, default="webhook")  # webhook oder imap
+    absender = models.EmailField(max_length=254, blank=True)
+    betreff = models.CharField(max_length=300, blank=True)
+    text = models.TextField(blank=True, max_length=5000)
+    empfangen = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS, default="neu")
+    auftrag = models.ForeignKey(Auftrag, null=True, blank=True, on_delete=models.SET_NULL, related_name="maileingaenge")
+    belegvorgang = models.ForeignKey(Belegvorgang, null=True, blank=True, on_delete=models.SET_NULL)
+    versuche = models.PositiveIntegerField(default=0)
+    fehler = models.CharField(max_length=500, blank=True)
+    angelegt = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-angelegt"]
+        verbose_name_plural = "Maileingänge"
+
+
+class Eingangsdatei(models.Model):
+    """Anhang aus dem Maileingang. Ohne Zuordnung oder bei Verdacht bleibt er verschlüsselt in der Quarantäne."""
+
+    STATUS = [("uebernommen", "übernommen"), ("zuordnung_offen", "Zuordnung offen"), ("quarantaene", "Quarantäne"),
+              ("dublette", "Dublette")]
+    maileingang = models.ForeignKey(Maileingang, on_delete=models.CASCADE, related_name="dateien")
+    originalname = models.CharField(max_length=255)
+    groesse = models.PositiveBigIntegerField()
+    sha256 = models.CharField(max_length=64)
+    speicher_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    schluessel = models.BinaryField(null=True)  # leer, wenn die Datei nicht gespeichert wurde (z. B. Virenfund)
+    status = models.CharField(max_length=20, choices=STATUS)
+    grund = models.CharField(max_length=300, blank=True)
+    dokument = models.ForeignKey(Dokument, null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        verbose_name_plural = "Eingangsdateien"
+
+
+class Abrechnungslauf(models.Model):
+    """Unveränderlicher Berechnungsstand einer Betriebskostenabrechnung (Format wie betriebskosten.version.Ablage)."""
+
+    STATUS = [("entwurf", "Entwurf"), ("fachlich_geprueft", "fachlich geprüft"),
+              ("eigentuemer_freigegeben", "vom Eigentümer freigegeben"), ("endgueltig", "endgültig")]
+    auftrag = models.ForeignKey(Auftrag, on_delete=models.CASCADE, related_name="abrechnungslaeufe")
+    version = models.PositiveIntegerField()
+    status = models.CharField(max_length=30, choices=STATUS, default="entwurf")
+    eingabe_hash = models.CharField(max_length=64)
+    ergebnis_hash = models.CharField(max_length=64)
+    regeln_version = models.CharField(max_length=20)
+    rote_warnungen = models.PositiveIntegerField()
+    gelbe_warnungen = models.PositiveIntegerField()
+    stand = models.JSONField()
+    erstellt = models.DateTimeField()
+    erstellt_von = models.ForeignKey("Benutzer", null=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        unique_together = [("auftrag", "version")]
+        ordering = ["auftrag", "version"]
+
+    @property
+    def naechster_status(self) -> str:
+        k = [s for s, _ in self.STATUS]
+        i = k.index(self.status)
+        return k[i + 1] if i + 1 < len(k) else ""
+
+    @property
+    def naechster_status_text(self) -> str:
+        return dict(self.STATUS).get(self.naechster_status, "")
+
+    def save(self, *args, **kwargs):
+        if self.pk and set(kwargs.get("update_fields") or ()) != {"status"}:
+            raise ValueError("Ein Berechnungsstand ist unveränderlich; nur der Status kann sich ändern.")
+        super().save(*args, **kwargs)
+
+
+class Report(models.Model):
+    """Versionierter Snapshot eines Jahresreports (Vorauszahlungsanalyse oder Kostenverlauf)."""
+
+    ARTEN = [("vorauszahlung", "Vorauszahlungsanalyse"), ("kostenverlauf", "Kostenverlaufsbericht")]
+    STATUS = [("entwurf", "Entwurf"), ("fachlich_geprueft", "fachlich geprüft"), ("freigegeben", "freigegeben")]
+    objekt = models.ForeignKey(Objekt, on_delete=models.CASCADE, related_name="reports")
+    art = models.CharField(max_length=20, choices=ARTEN)
+    nummer = models.PositiveIntegerField()
+    status = models.CharField(max_length=20, choices=STATUS, default="entwurf")
+    laeufe = models.ManyToManyField(Abrechnungslauf, related_name="reports")
+    inhalt = models.JSONField()
+    inhalt_hash = models.CharField(max_length=64)
+    erstellt = models.DateTimeField()
+    erstellt_von = models.ForeignKey("Benutzer", null=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        unique_together = [("objekt", "art", "nummer")]
+        ordering = ["objekt", "art", "-nummer"]
+
+    def save(self, *args, **kwargs):
+        if self.pk and set(kwargs.get("update_fields") or ()) != {"status"}:
+            raise ValueError("Ein Report-Snapshot ist unveränderlich; nur der Status kann sich ändern.")
+        super().save(*args, **kwargs)
+
+    def snapshot(self) -> dict:
+        return {"report": self.art, "nummer": self.nummer, "erstellt": self.erstellt.isoformat(), "inhalt": self.inhalt}
+
+
+class Statuswechsel(models.Model):
+    """Freigabeschritte von Abrechnungsläufen und Reports (wer, wann, welcher Status)."""
+
+    lauf = models.ForeignKey(Abrechnungslauf, null=True, blank=True, on_delete=models.CASCADE, related_name="statuswechsel")
+    report = models.ForeignKey(Report, null=True, blank=True, on_delete=models.CASCADE, related_name="statuswechsel")
+    status = models.CharField(max_length=30)
+    benutzer = models.ForeignKey("Benutzer", null=True, on_delete=models.SET_NULL)
+    zeit = models.DateTimeField(auto_now_add=True)
+    notiz = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ["zeit", "id"]
 
 
 class Protokoll(models.Model):

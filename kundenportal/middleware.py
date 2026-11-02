@@ -5,7 +5,7 @@ from django.conf import settings
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
 
-OFFEN = ("/anmelden/", "/einladung/", "/static/", "/download/")
+OFFEN = ("/anmelden/", "/einladung/", "/static/", "/download/", "/eingang/")  # /eingang/ nur mit Signatur
 
 
 class Zugang:

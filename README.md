@@ -54,6 +54,16 @@ Zahlenwerk-Konten sehen die Bibliothek immer. Kunden erst, wenn
 `PORTAL_VORLAGEN_FUER_KUNDEN=1` gesetzt ist, und das nur nach ausdrücklicher
 Freigabe durch Matthias.
 
+### Betriebskosten, Jahresreports und Belegeingang
+
+Unter `/intern/objekt/<id>/abrechnung/` legt Zahlenwerk unveränderliche
+Berechnungsstände an, gibt sie stufenweise frei und erzeugt daraus die beiden
+Jahresreports. Eigentümer sehen nur freigegebene Reports ihres Objekts (Ansicht und PDF).
+Belege kommen per Upload, Smartphone-Erfassung (`/auftrag/<id>/beleg/`, für Kunden erst mit
+`PORTAL_MOBILE_ERFASSUNG_FUER_KUNDEN=1`) oder über das Postfach belege@ (n8n ruft
+`/eingang/belege/` signiert auf; Rückfallweg `python manage.py belege_imap_abruf`).
+Einzelheiten, Schnittstelle und Berechtigungscheck: [docs/belegeingang-und-reports.md](docs/belegeingang-und-reports.md).
+
 ## Betriebskostenabrechnung (Generator, Entwurf)
 
 `betriebskosten/` berechnet aus geprüften Stammdaten, Belegen, Verteilerschlüsseln,

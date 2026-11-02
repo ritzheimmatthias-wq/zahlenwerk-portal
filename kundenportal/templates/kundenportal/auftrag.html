@@ -30,6 +30,7 @@
       <label class="check" for="{{ form.berechtigt.id_for_label }}">{{ form.berechtigt }} {{ form.berechtigt.label }}</label>{{ form.berechtigt.errors }}
       <button class="btn" type="submit">Hochladen</button>
     </form>
+    {% if mobil %}<p><a class="btn ghost" href="{% url 'beleg_erfassen' a.pk %}">Papierbeleg mit dem Smartphone fotografieren</a></p>{% endif %}
     <div class="note">Dateien werden einzeln verschlüsselt gespeichert und 90 Tage nach Abschluss des Auftrags automatisch gelöscht.</div>
     {% else %}<p class="lead">Dieser Auftrag ist abgeschlossen.</p>{% endif %}
     {% if eigene %}<h3>Ihre Uploads</h3><ul class="list">

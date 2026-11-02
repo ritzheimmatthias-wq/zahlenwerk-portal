@@ -169,6 +169,19 @@ MAIL_INTERN = env("PORTAL_MAIL_INTERN", "")
 # Kunden erst nach ausdrücklicher Freigabe durch Matthias (PORTAL_VORLAGEN_FUER_KUNDEN=1).
 VORLAGEN_FUER_KUNDEN = env("PORTAL_VORLAGEN_FUER_KUNDEN") == "1"
 
+# Smartphone-Belegerfassung: Zahlenwerk kann sie immer testen, Kunden erst nach technischer
+# Abnahme und Freigabe durch Matthias (PORTAL_MOBILE_ERFASSUNG_FUER_KUNDEN=1).
+MOBILE_ERFASSUNG_FUER_KUNDEN = env("PORTAL_MOBILE_ERFASSUNG_FUER_KUNDEN") == "1"
+
+# Belegeingang über belege@ (n8n ruft /eingang/belege/ signiert auf). Ohne Geheimnis ist der Eingang aus.
+BELEGE_WEBHOOK_GEHEIMNIS = env("PORTAL_BELEGE_WEBHOOK_GEHEIMNIS", "") or ""
+BELEGE_EINGANGSBESTAETIGUNG = env("PORTAL_BELEGE_EINGANGSBESTAETIGUNG") == "1"
+# IMAP-Rückfallweg (manage.py belege_imap_abruf); Zugangsdaten nur als Server-Secrets
+BELEGE_IMAP_HOST = env("PORTAL_BELEGE_IMAP_HOST", "imap.hostinger.com")
+BELEGE_IMAP_PORT = int(env("PORTAL_BELEGE_IMAP_PORT", "993") or 993)
+BELEGE_IMAP_BENUTZER = env("PORTAL_BELEGE_IMAP_BENUTZER", "") or ""
+BELEGE_IMAP_PASSWORT = env("PORTAL_BELEGE_IMAP_PASSWORT", "") or ""
+
 # Fristen
 CODE_GUELTIG_MINUTEN = 10
 CODE_MAX_VERSUCHE = 5

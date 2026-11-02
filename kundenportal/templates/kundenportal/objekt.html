@@ -10,6 +10,11 @@
       <span class="sub meta">Checkliste: {{ fertig }} von {{ gesamt }} eingereicht</span></li>
     {% empty %}<li><span class="meta">Noch kein Auftrag.</span></li>{% endfor %}
     </ul>
+    {% if berichte %}<h2>Jahresreports</h2><ul class="list">
+    {% for r in berichte %}<li><a href="{% url 'bericht' r.pk %}"><strong>{{ r.get_art_display }}</strong></a>
+      {% if r.status != "freigegeben" %}<span class="pill p-warn">{{ r.get_status_display }}</span>{% endif %}
+      <span class="sub meta">Nr. {{ r.nummer }} · erstellt {{ r.erstellt|date:"d.m.Y" }} · <a href="{% url 'bericht_pdf' r.pk %}">PDF</a></span></li>{% endfor %}
+    </ul>{% endif %}
   </div>
   <div class="card"><h2>Steckbrief</h2>
     <div class="tbl-wrap"><table><tbody>

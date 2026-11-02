@@ -4,7 +4,9 @@
 <div><a class="meta" href="{% url 'intern' %}">‹ Zurück zum Eingang</a>
 <h1>{{ a }} · {{ a.objekt.bezeichnung }}</h1>
 <p class="lead">{{ a.objekt.kunde }} · Status <span class="pill s-{{ a.status }}">{{ a.get_status_display }}</span>
-{% if a.loeschdatum %} · Löschung der Unterlagen am {{ a.loeschdatum|date:"d.m.Y" }}{% endif %}</p></div>
+{% if a.loeschdatum %} · Löschung der Unterlagen am {{ a.loeschdatum|date:"d.m.Y" }}{% endif %}</p>
+<p class="row"><a class="btn ghost small" href="{% url 'intern_abrechnung_objekt' a.objekt.pk %}">Betriebskosten und Jahresreports</a>
+{% if a.status != "abgeschlossen" %}<a class="btn ghost small" href="{% url 'beleg_erfassen' a.pk %}">Beleg mit dem Smartphone erfassen (Test)</a>{% endif %}</p></div>
 <div class="grid2">
   <div class="card"><div class="row sp"><h2>Checkliste</h2><span class="meta num">{{ fertig_gesamt.0 }} von {{ fertig_gesamt.1 }}</span></div>
     <ul class="list">

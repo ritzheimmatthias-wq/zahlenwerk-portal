@@ -63,7 +63,7 @@ def _legende(reihen: list, y: int, farben) -> str:
 
 def _rahmen(inhalt: str, b: int, h: int, titel: str) -> str:
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {b} {h}" width="100%" role="img" '
-            f'aria-label="{_e(titel)}" {SCHRIFT} style="max-width:{b}px;display:block">{inhalt}</svg>')
+            f'aria-label="{_e(titel)}" {SCHRIFT} class="diagramm-svg">{inhalt}</svg>')
 
 
 def balken(d: dict, abweichung: bool = False) -> str:

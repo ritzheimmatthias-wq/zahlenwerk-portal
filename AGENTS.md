@@ -40,6 +40,9 @@ Vault-Ordner `Projekte/Server und Kundenportal`.
   Dazu die Jahresreports (Vorauszahlungsanalyse, Kostenverlauf) mit versionierten Snapshots.
   Alle Zahlen deterministisch im Code; kein Sprachmodell berechnet oder verändert Beträge,
   Verteilungen, Umsatzsteuer, Rundungen, Salden, Prozentwerte oder Empfehlungen.
+- `kundenportal/abrechnung.py`, `kundenportal/belege.py`: Abrechnungsläufe, Report-Snapshots und
+  Belegeingang (Smartphone, belege@). Siehe `docs/belegeingang-und-reports.md`. Webhook-Geheimnis und
+  IMAP-Zugang nur als Server-Secrets; Smartphone-Erfassung für Kunden erst nach Freigabe.
 - `tests/`: Tests mit erfundenen Beispieldaten in `tests/beispiel/`.
 - `portal/`, `kundenportal/`: Kundenportal (Django). Seiten unter `kundenportal/templates/`.
 - `kundenportal/dokumentvorlagen_dateien/<Prüfstand>/`: Dokumentvorlagen unverändert aus dem
