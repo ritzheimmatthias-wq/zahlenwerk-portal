@@ -4,6 +4,7 @@
 | --- | --- | --- | --- |
 | defusedxml | sicheres Einlesen von CAMT-XML aus Uploads | PSF-2.0 | 31.10.2026 |
 | pytest (nur Tests) | Testlauf | MIT | 31.10.2026 |
+| pypdf (nur Tests) | Text aus erzeugten Abrechnungs-PDFs prüfen | BSD-3-Clause | 02.11.2026 |
 | WeasyPrint (optional `[pdf]`) | PDF-Bericht aus HTML/CSS | BSD-3-Clause | 01.11.2026 |
 | ↳ pydyf, tinycss2, cssselect2, webencodings | Abhängigkeiten von WeasyPrint | BSD | 01.11.2026 |
 | ↳ tinyhtml5, fonttools, cffi, Pillow | Abhängigkeiten von WeasyPrint | MIT, MIT-0, MIT-CMU | 01.11.2026 |
@@ -61,3 +62,10 @@ Passwort-Hashing und Datenbank-Migrationen geprüft mitgeliefert werden. Weniger
 eigener Sicherheitscode heißt weniger Fehlerquellen für ein Ein-Personen-Projekt.
 Die Seiten werden auf dem Server erzeugt, ohne JavaScript und ohne externe
 Schriften oder Dienste (strenge Content-Security-Policy).
+
+## Betriebskostenabrechnung (02.11.2026)
+
+Eigener Rechenkern in `betriebskosten/` ohne neue Laufzeitabhängigkeit. PDF-Entwürfe
+mit WeasyPrint wie beim Bericht. Rundung je Kostenart nach dem Verfahren der größten
+Reste: Die Summe aller Anteile entspricht immer genau den Gesamtkosten. Fremde
+Abrechnungssoftware oder Code aus GPL-Projekten wurde nicht verwendet.
