@@ -66,6 +66,28 @@ def ergebnis_hash(ergebnis: dict) -> str:
     return hashlib.sha256(kanonisch(ergebnis).encode()).hexdigest()
 
 
+def stand_fehler(stand: dict) -> list[str]:
+    """Prüft einen gespeicherten Stand gegen seinen eigenen Inhalt: Prüfsummen werden aus Eingabe
+    und Ergebnis neu gebildet, Warnungszähler aus den gespeicherten Warnungen. Leere Liste = in Ordnung.
+
+    Schutzgrenze: Wer Inhalt und alle Prüfsummen gemeinsam neu schreiben darf, wird hiermit allein nicht
+    erkannt. Dafür dient zusätzlich der Abgleich mit dem verketteten Audit-Log (Ablage.pruefen) bzw. im
+    Portal mit der Datenbank.
+    """
+    fehler = []
+    try:
+        if stand.get("eingabe_hash") != eingabe_hash(stand["eingabe"]):
+            fehler.append("Eingabedaten passen nicht zur Eingabe-Prüfsumme")
+        if "ergebnis_hash" not in stand or stand["ergebnis_hash"] != ergebnis_hash(stand["ergebnis"]):
+            fehler.append("Ergebnisdaten passen nicht zur Ergebnis-Prüfsumme")
+        stufen = [w.get("stufe") for w in stand["ergebnis"].get("warnungen", [])]
+        if stand.get("rote_warnungen") != stufen.count("rot") or stand.get("gelbe_warnungen") != stufen.count("gelb"):
+            fehler.append("Warnungszähler passen nicht zu den gespeicherten Warnungen")
+    except (KeyError, TypeError, AttributeError):
+        fehler.append("Stand ist unvollständig")
+    return fehler
+
+
 class Ablage:
     def __init__(self, verzeichnis: str | Path):
         self.pfad = Path(verzeichnis)
@@ -86,7 +108,9 @@ class Ablage:
         vorhanden = self.versionen()
         if vorhanden:
             letzte = self.lesen(vorhanden[-1])
-            if letzte["eingabe_hash"] == h and letzte["ergebnis"]["regeln_version"] == erg.regeln_version:
+            if letzte.get("eingabe_hash") == h and letzte.get("ergebnis", {}).get("regeln_version") == erg.regeln_version:
+                # Einen beschädigten Altstand nie als vermeintlich identisches Ergebnis zurückgeben.
+                self.pruefen(vorhanden[-1])
                 return vorhanden[-1], False
         version = (vorhanden[-1] + 1) if vorhanden else 1
         ergebnis = als_dict(erg)
@@ -125,11 +149,44 @@ class Ablage:
         return True
 
     def nachrechnen(self, version: int, erg) -> bool:
-        """Prüft, ob eine erneute Berechnung derselben Eingabe exakt den gespeicherten Stand ergibt."""
-        stand = self.lesen(version)
+        """Prüft, ob der gespeicherte Stand unverfälscht ist und eine erneute Berechnung derselben Eingabe
+        exakt diesen Stand ergibt. Verglichen wird auch mit dem tatsächlich gespeicherten Ergebnisinhalt."""
+        try:
+            stand = self.pruefen(version)
+        except Freigabefehler:
+            return False
+        neu = als_dict(erg)
         return (stand["eingabe_hash"] == eingabe_hash(erg.daten)
                 and stand["ergebnis"]["regeln_version"] == erg.regeln_version
-                and stand["ergebnis_hash"] == ergebnis_hash(als_dict(erg)))
+                and stand["ergebnis_hash"] == ergebnis_hash(neu)
+                and kanonisch(stand["ergebnis"]) == kanonisch(neu))
+
+    def pruefen(self, version: int) -> dict:
+        """Liest einen Stand und prüft Inhalt, Prüfsummen, Warnungszähler und Audit-Kette.
+        Wirft Freigabefehler, sonst Rückgabe des geprüften Stands."""
+        if version not in self.versionen():
+            raise Freigabefehler(f"Version {version} gibt es nicht")
+        try:
+            stand = self.lesen(version)
+        except (OSError, ValueError):
+            raise Freigabefehler(f"Version {version} ist nicht lesbar. Weitere Schritte gesperrt.") from None
+        fehler = stand_fehler(stand)
+        if stand.get("version") != version:
+            fehler.append("Versionsnummer passt nicht zur Datei")
+        if not self.audit_unverfaelscht():
+            fehler.append("Audit-Log ist beschädigt")
+        berechnet = [e for e in self.audit() if e.get("ereignis") == "berechnet" and e.get("version") == version]
+        if len(berechnet) != 1:
+            fehler.append("Berechnung fehlt im Audit-Log")
+        else:
+            e = berechnet[0]
+            if (e.get("eingabe_hash") != stand.get("eingabe_hash") or e.get("ergebnis_hash") != stand.get("ergebnis_hash")
+                    or e.get("rot") != stand.get("rote_warnungen") or e.get("gelb") != stand.get("gelbe_warnungen")
+                    or e.get("regeln") != stand.get("ergebnis", {}).get("regeln_version")):
+                fehler.append("Stand weicht vom Audit-Log ab")
+        if fehler:
+            raise Freigabefehler(f"Version {version} ist nicht unverfälscht ({'; '.join(fehler)}). Weitere Schritte gesperrt.")
+        return stand
 
     def _audit(self, eintrag: dict) -> None:
         eintraege = self.audit()
@@ -146,12 +203,13 @@ class Ablage:
             raise Freigabefehler(f"Unbekannter Status {neu}")
         if version not in self.versionen():
             raise Freigabefehler(f"Version {version} gibt es nicht")
+        stand = self.pruefen(version)  # beschädigter Stand oder Audit-Log sperrt jeden weiteren Schritt
         alt = self.status(version)
         if STATUS.index(neu) != STATUS.index(alt) + 1:
             raise Freigabefehler(f"Von {alt} ist nur {STATUS[STATUS.index(alt) + 1] if alt != STATUS[-1] else 'kein weiterer Schritt'} möglich")
         if version != self.versionen()[-1]:
             raise Freigabefehler("Nur die neueste Version kann freigegeben werden")
-        if self.lesen(version)["rote_warnungen"]:
+        if stand["rote_warnungen"]:
             raise Freigabefehler("Rote Warnungen bestehen. Freigabe gesperrt.")
         if not person:
             raise Freigabefehler("Freigabe braucht eine verantwortliche Person")
