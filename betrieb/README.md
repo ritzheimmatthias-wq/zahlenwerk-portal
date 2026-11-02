@@ -41,3 +41,10 @@ Ohne ihn sind die Dateien auch aus der Sicherung nicht lesbar.
 - Das Löschen entfernt Datei und Schlüssel. In den Sicherungen verschwinden die Dateien nach
   Ablauf der Aufbewahrung (rund 120 Tage nach Auftragsende).
 - Nachrichten, Steckbrief-Bearbeitung durch Kunden und die Einbindung der Auswertung folgen.
+
+## Prüfung des Images (CI)
+
+Die GitHub-Prüfung baut das Image bei jedem Pull Request und führt `betrieb/container_smoke.py`
+ohne Netz (`--network none`) und nur mit Wegwerfschlüsseln aus. Geprüft werden: Import aller Pakete,
+Django-Systemprüfung, Migrationen auf einer leeren Wegwerf-Datenbank, statische Dateien,
+Anmeldeseite, PDF-Erzeugung und PDF-Prüfung. Das Image wird dabei weder veröffentlicht noch gestartet.

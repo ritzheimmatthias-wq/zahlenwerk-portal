@@ -20,3 +20,18 @@ jobs:
         run: |
           PORTAL_TEST=1 python manage.py check
           PORTAL_TEST=1 python manage.py makemigrations --check --dry-run
+  container:
+    # Baut das Image nur zur Prüfung. Es wird weder veröffentlicht noch auf einem Server gestartet.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Image bauen
+        run: docker build --pull -t zahlenwerk-portal:pruefung .
+      - name: Smoke-Test ohne Netz und nur mit Wegwerfwerten
+        run: |
+          docker run --rm --network none \
+            -e PORTAL_SECRET_KEY="nur-ci-smoke-$(openssl rand -hex 24)" \
+            -e PORTAL_MASTER_KEY="$(openssl rand -base64 32)" \
+            -e PORTAL_HOSTS=testserver \
+            -v "$PWD/betrieb/container_smoke.py:/pruefung/smoke.py:ro" \
+            zahlenwerk-portal:pruefung python /pruefung/smoke.py
