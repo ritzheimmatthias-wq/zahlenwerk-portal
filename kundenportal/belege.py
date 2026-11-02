@@ -4,7 +4,12 @@ Alle Wege nutzen dieselbe Prüfung: Inhalt statt Endung, Virenscan,
 Verschlüsselung je Datei, Dublettenprüfung über SHA-256. Eine OCR-Auswertung
 gibt es noch nicht; eingegangene Belege prüft Zahlenwerk.
 
-Maileingang (Zielweg laut Konzept vom 02.11.2026):
+Maileingang (Zielweg laut Konzept vom 02.11.2026), zweistufig und wiederaufnehmbar:
+1. `annehmen`: Nachricht und alle Anhänge verschlüsselt in einer Transaktion sichern. Erst dann
+   bestätigt der Webhook bzw. setzt IMAP „gelesen“.
+2. `verarbeiten`: befristeter Bearbeitungsanspruch, Prüfung, Zuordnung, Übernahme in einer Transaktion.
+   Verwaiste oder fehlgeschlagene Eingänge setzt `wiederaufnehmen` (manage.py belege_wiederaufnahme) fort.
+
 Hostinger löst für belege@ das Ereignis `message.received` aus → n8n prüft den
 Webhook, holt Nachricht und Anhänge (Hostinger-Mail-Schnittstelle oder IMAP)
 und übergibt sie signiert an `/eingang/belege/`. Ersatzweise holt
@@ -18,11 +23,13 @@ import hmac
 import json
 import re
 import time
+from collections import Counter
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import F, Q
 from django.utils import timezone
 
 from . import mails, tresor, virenscan
@@ -76,14 +83,14 @@ def vorgang_anlegen(auftrag: Auftrag, benutzer, quelle: str, hinweis: str = "") 
 
 def seite_ablegen(vorgang: Belegvorgang, datei, seite: int, benutzer, sha256: str = "") -> tuple[Dokument, bool]:
     """Legt eine Seite ab. Wiederholte Übertragung derselben Seite (gleiche Nummer und Prüfsumme) ist unschädlich."""
-    if vorgang.status != "offen":
-        raise Abgelehnt("Dieser Beleg ist bereits abgeschlossen.")
     if not 1 <= seite <= MAX_SEITEN:
         raise Abgelehnt(f"Ein Beleg kann höchstens {MAX_SEITEN} Seiten haben.")
     vorhanden = vorgang.seiten.filter(seite=seite, geloescht__isnull=True).first()
+    if vorhanden and sha256 and vorhanden.sha256 == sha256:
+        return vorhanden, False  # auch nach Abschluss: Wiederholung derselben Seite ist unschädlich
+    if vorgang.status != "offen":
+        raise Abgelehnt("Dieser Beleg ist bereits abgeschlossen.")
     if vorhanden:
-        if sha256 and vorhanden.sha256 == sha256:
-            return vorhanden, False
         raise Abgelehnt(f"Seite {seite} ist bereits übertragen. Bitte als neue Seite senden.")
     name = sicherer_name(datei.name)
     if name.rsplit(".", 1)[-1].lower() not in BILDTYPEN:
@@ -95,15 +102,24 @@ def seite_ablegen(vorgang: Belegvorgang, datei, seite: int, benutzer, sha256: st
     return dok, True
 
 
-def vorgang_abschliessen(vorgang: Belegvorgang, benutzer) -> None:
-    if vorgang.status != "offen":
-        return
-    if not vorgang.seiten.filter(geloescht__isnull=True).exists():
-        raise Abgelehnt("Der Beleg hat noch keine Seite.")
-    vorgang.status, vorgang.abgeschlossen = "eingegangen", timezone.now()
-    vorgang.save(update_fields=["status", "abgeschlossen"])
-    protokoll("belegvorgang_eingegangen", benutzer, f"vorgang:{vorgang.pk}", f"seiten:{vorgang.seiten.count()}")
-    mails.intern_neue_unterlagen(vorgang.auftrag)
+def vorgang_abschliessen(vorgang: Belegvorgang, benutzer) -> bool:
+    """Schließt einen Vorgang ab. Idempotent: ein wiederholter Aufruf (z. B. nach verlorener Antwort
+    oder Neustart des Browsers) ändert nichts und benachrichtigt nicht erneut. Gibt zurück, ob dieser
+    Aufruf den Vorgang abgeschlossen hat."""
+    with transaction.atomic():
+        gesperrt = Belegvorgang.objects.select_for_update().get(pk=vorgang.pk)
+        if gesperrt.status != "offen":
+            vorgang.status, vorgang.abgeschlossen = gesperrt.status, gesperrt.abgeschlossen
+            return False
+        if not gesperrt.seiten.filter(geloescht__isnull=True).exists():
+            raise Abgelehnt("Der Beleg hat noch keine Seite.")
+        gesperrt.status, gesperrt.abgeschlossen = "eingegangen", timezone.now()
+        gesperrt.save(update_fields=["status", "abgeschlossen"])
+        vorgang.status, vorgang.abgeschlossen = gesperrt.status, gesperrt.abgeschlossen
+        protokoll("belegvorgang_eingegangen", benutzer, f"vorgang:{vorgang.pk}", f"seiten:{gesperrt.seiten.count()}")
+        auftrag = gesperrt.auftrag
+        transaction.on_commit(lambda: mails.intern_neue_unterlagen(auftrag))
+    return True
 
 
 # --- Maileingang ----------------------------------------------------------------------
@@ -151,84 +167,158 @@ def _zuordnen(absender: str, betreff: str) -> tuple[Auftrag | None, str]:
     return None, "Mehrere oder keine offenen Aufträge; bitte zuordnen"
 
 
-def _datei_speichern(eingang: Maileingang, a: Anhang, status: str, grund: str = "", speichern: bool = True) -> Eingangsdatei:
-    d = Eingangsdatei(maileingang=eingang, originalname=sicherer_name(a.name), groesse=len(a.daten),
-                      sha256=hashlib.sha256(a.daten).hexdigest(), status=status, grund=grund[:300])
-    if speichern:
-        d.schluessel = tresor.ablegen(d.speicher_id, a.daten)
-    d.save()
-    return d
+LEASE = timedelta(minutes=10)  # befristeter Bearbeitungsanspruch; danach darf ein anderer Lauf übernehmen
+OFFEN = ("neu", "fehler")
 
 
-def verarbeite_eingang(*, message_id: str, absender: str, betreff: str, text: str, empfangen: datetime | None,
-                       anhaenge: list[Anhang], kanal: str) -> tuple[Maileingang, bool]:
-    """Nimmt eine Nachricht aus belege@ an. Gibt (Eingang, neu) zurück; Dubletten werden nicht erneut verarbeitet."""
+@dataclass
+class Eingangsergebnis:
+    eingang: Maileingang
+    neu: bool  # Nachricht zum ersten Mal angenommen
+    gesichert: bool  # alle Anhänge verschlüsselt gespeichert (sichere Warteschlange)
+    abgeschlossen: bool  # Verarbeitung beendet (verarbeitet, Zuordnung offen oder Quarantäne)
+
+
+def annehmen(*, message_id: str, absender: str, betreff: str, text: str, empfangen: datetime | None,
+             anhaenge: list[Anhang], kanal: str) -> tuple[Maileingang, bool]:
+    """Stufe 1: Nachricht und alle Anhänge in einer Transaktion dauerhaft und verschlüsselt sichern.
+
+    Erst danach gilt eine Nachricht als übernommen. Bricht der Prozess vorher ab, bleibt nichts zurück und
+    die erneute Zustellung beginnt von vorn. Liegt bereits ein Eintrag ohne gesicherte Anhänge vor (älterer
+    Stand oder Abbruch), werden die Anhänge der erneuten Zustellung gesichert.
+    """
     message_id = (message_id or "").strip()[:300]
     if not message_id:
         raise ValueError("Message-ID fehlt")
+    if len(anhaenge) > MAX_ANHAENGE:
+        raise ValueError(f"Mehr als {MAX_ANHAENGE} Anhänge")
     with transaction.atomic():
         eingang, neu = Maileingang.objects.get_or_create(message_id=message_id, defaults={
             "kanal": kanal, "absender": (absender or "")[:254].lower(), "betreff": (betreff or "")[:300],
             "text": (text or "")[:5000], "empfangen": empfangen})
-    if not neu and eingang.status != "fehler":
-        protokoll("maileingang_dublette", None, f"eingang:{eingang.pk}")
-        return eingang, False
-    eingang.versuche += 1
-    eingang.save(update_fields=["versuche"])
+        eingang = Maileingang.objects.select_for_update().get(pk=eingang.pk)
+        if not eingang.roh_gespeichert:
+            eingang.dateien.filter(status="empfangen").delete()  # unvollständige Reste eines älteren Stands
+            for i, a in enumerate(anhaenge):
+                zu_gross = len(a.daten) > settings.MAX_DATEIGROESSE
+                d = Eingangsdatei(maileingang=eingang, position=i, originalname=sicherer_name(a.name), groesse=len(a.daten),
+                                  sha256=hashlib.sha256(a.daten).hexdigest(),
+                                  status="quarantaene" if zu_gross else "empfangen", grund="größer als 50 MB" if zu_gross else "")
+                if not zu_gross:
+                    d.schluessel = tresor.ablegen(d.speicher_id, a.daten)
+                d.save()
+            eingang.roh_gespeichert = True
+            eingang.save(update_fields=["roh_gespeichert"])
+            protokoll("maileingang_gesichert", None, f"eingang:{eingang.pk}", f"anhaenge:{len(anhaenge)} kanal:{kanal}")
+        elif not neu:
+            protokoll("maileingang_wiederholt", None, f"eingang:{eingang.pk}", f"status:{eingang.status}")
+    return eingang, neu
+
+
+def _anspruch(pk: int) -> bool:
+    """Atomarer, befristeter Bearbeitungsanspruch. Nur ein Lauf gewinnt; verwaiste Ansprüche verfallen."""
+    jetzt = timezone.now()
+    return bool(Maileingang.objects.filter(pk=pk, roh_gespeichert=True).filter(
+        Q(status__in=OFFEN) | Q(status="in_bearbeitung", bearbeitung_bis__lt=jetzt) | Q(status="in_bearbeitung", bearbeitung_bis__isnull=True)
+    ).update(status="in_bearbeitung", bearbeitung_bis=jetzt + LEASE, versuche=F("versuche") + 1))
+
+
+def verarbeiten(pk: int) -> Maileingang:
+    """Stufe 2: gesicherte Anhänge prüfen, zuordnen und übernehmen. Wiederholbar und idempotent."""
+    if not _anspruch(pk):
+        return Maileingang.objects.get(pk=pk)
     try:
         with transaction.atomic():
-            _verarbeiten(eingang, anhaenge)
-    except Exception as e:  # nichts verlieren: Eintrag bleibt, Status fehler, n8n wiederholt
-        eingang.status, eingang.fehler = "fehler", f"{type(e).__name__}: {str(e)[:400]}"
-        eingang.save(update_fields=["status", "fehler"])
-        protokoll("maileingang_fehler", None, f"eingang:{eingang.pk}", eingang.fehler)
+            eingang = Maileingang.objects.select_for_update().get(pk=pk)
+            _verarbeiten(eingang)
+    except Exception as e:  # nichts verlieren: Anhänge bleiben gesichert, Status fehler, erneut versuchbar
+        fehler = f"{type(e).__name__}: {str(e)[:400]}"
+        Maileingang.objects.filter(pk=pk).update(status="fehler", fehler=fehler, bearbeitung_bis=None)
+        protokoll("maileingang_fehler", None, f"eingang:{pk}", fehler)
         raise
-    return eingang, True
+    return Maileingang.objects.get(pk=pk)
 
 
-def _verarbeiten(eingang: Maileingang, anhaenge: list[Anhang]) -> None:
-    if len(anhaenge) > MAX_ANHAENGE:
-        raise ValueError(f"Mehr als {MAX_ANHAENGE} Anhänge")
+def verarbeite_eingang(**nachricht) -> Eingangsergebnis:
+    """Annehmen und sofort verarbeiten. Bei einem Fehler der Verarbeitung bleibt die Nachricht gesichert."""
+    eingang, neu = annehmen(**nachricht)
+    eingang = verarbeiten(eingang.pk)
+    return Eingangsergebnis(eingang, neu, eingang.roh_gespeichert, eingang.status in Maileingang.ABGESCHLOSSEN)
+
+
+def wiederaufnehmen() -> tuple[int, int]:
+    """Setzt gesicherte, aber nicht abgeschlossene Eingänge fort (neu, fehler, verfallener Anspruch)."""
+    jetzt = timezone.now()
+    offen = Maileingang.objects.filter(roh_gespeichert=True).filter(
+        Q(status__in=OFFEN) | Q(status="in_bearbeitung", bearbeitung_bis__lt=jetzt)).values_list("pk", flat=True)
+    ok = fehler = 0
+    for pk in list(offen):
+        try:
+            verarbeiten(pk)
+            ok += 1
+        except Exception:
+            fehler += 1
+    return ok, fehler
+
+
+def _nach_commit_entfernen(d: Eingangsdatei) -> None:
+    speicher_id = d.speicher_id
+    transaction.on_commit(lambda: tresor.entfernen(speicher_id))
+    d.schluessel = None
+
+
+def _verarbeiten(eingang: Maileingang) -> None:
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
     auftrag, grund = _zuordnen(eingang.absender, eingang.betreff)
     vorgang = None
     if auftrag:
         vorgang = Belegvorgang.objects.create(auftrag=auftrag, quelle="email", status="offen",
                                               hinweis=f"E-Mail: {eingang.betreff}"[:1000])
-    quarantaene = False
+    quarantaene = eingang.dateien.filter(status="quarantaene").exists()
     seite = 0
-    for a in anhaenge:
-        sha = hashlib.sha256(a.daten).hexdigest()
-        if Eingangsdatei.objects.filter(sha256=sha).exclude(maileingang=eingang).exists() or \
-                (auftrag and Dokument.objects.filter(auftrag=auftrag, sha256=sha, geloescht__isnull=True).exists()):
-            _datei_speichern(eingang, a, "dublette", "Datei bereits eingegangen", speichern=False)
-            continue
-        if len(a.daten) > settings.MAX_DATEIGROESSE:
-            _datei_speichern(eingang, a, "quarantaene", "größer als 50 MB", speichern=False)
-            quarantaene = True
+    zaehler = {"uebernommen": 0, "dublette": 0, "quarantaene": 0, "zuordnung_offen": 0}
+    for d in eingang.dateien.filter(status="empfangen").order_by("position", "id"):
+        daten = tresor.lesen(d.speicher_id, d.schluessel)
+        if hashlib.sha256(daten).hexdigest() != d.sha256:
+            raise ValueError("Gesicherter Anhang passt nicht zu seiner Prüfsumme")
+        # Dubletten nur fachlich je Auftrag (Befund W4): fremde Kunden oder offene Eingänge blockieren nichts.
+        vorhanden = auftrag and Dokument.objects.filter(auftrag=auftrag, sha256=d.sha256, geloescht__isnull=True).first()
+        if vorhanden:
+            d.status, d.grund, d.dokument = "dublette", "Datei liegt in diesem Auftrag bereits vor", vorhanden
+            _nach_commit_entfernen(d)
+            d.save(update_fields=["status", "grund", "dokument", "schluessel"])
+            zaehler["dublette"] += 1
             continue
         try:
-            pruefe_datei(sicherer_name(a.name), a.daten)
-            sauber, befund = virenscan.pruefen(a.daten)
+            pruefe_datei(d.originalname, daten)
+            sauber, befund = virenscan.pruefen(daten)
         except Abgelehnt as e:
-            _datei_speichern(eingang, a, "quarantaene", str(e))
+            d.status, d.grund = "quarantaene", str(e)[:300]
+            d.save(update_fields=["status", "grund"])
             quarantaene = True
+            zaehler["quarantaene"] += 1
             continue
         if not sauber:
-            _datei_speichern(eingang, a, "quarantaene", f"Virenfund: {befund}", speichern=False)
+            d.status, d.grund = "quarantaene", f"Virenfund: {befund}"[:300]
+            _nach_commit_entfernen(d)  # nur der Befund bleibt
+            d.save(update_fields=["status", "grund", "schluessel"])
             protokoll("virenfund", None, f"eingang:{eingang.pk}", befund)
             quarantaene = True
+            zaehler["quarantaene"] += 1
             continue
         if not auftrag:
-            _datei_speichern(eingang, a, "zuordnung_offen", grund)
+            d.status, d.grund = "zuordnung_offen", grund[:300]
+            d.save(update_fields=["status", "grund"])
+            zaehler["zuordnung_offen"] += 1
             continue
-        from django.core.files.uploadedfile import SimpleUploadedFile
-
         seite += 1
-        dok = datei_ablegen(SimpleUploadedFile(a.name, a.daten), auftrag=auftrag, punkt=None, richtung="kunde",
+        dok = datei_ablegen(SimpleUploadedFile(d.originalname, daten), auftrag=auftrag, punkt=None, richtung="kunde",
                             benutzer=None, hinweis=f"E-Mail-Eingang {eingang.eingang_id}", belegvorgang=vorgang, seite=seite)
-        d = _datei_speichern(eingang, a, "uebernommen", speichern=False)
-        d.dokument = dok
-        d.save(update_fields=["dokument"])
+        d.status, d.dokument = "uebernommen", dok
+        _nach_commit_entfernen(d)
+        d.save(update_fields=["status", "dokument", "schluessel"])
+        zaehler["uebernommen"] += 1
     if vorgang:
         if seite:
             vorgang.status, vorgang.abgeschlossen = "eingegangen", timezone.now()
@@ -239,12 +329,14 @@ def _verarbeiten(eingang: Maileingang, anhaenge: list[Anhang]) -> None:
     eingang.auftrag, eingang.belegvorgang = auftrag, vorgang
     eingang.status = "quarantaene" if quarantaene else ("verarbeitet" if auftrag else "zuordnung_offen")
     eingang.fehler = "" if auftrag else grund
-    eingang.save(update_fields=["auftrag", "belegvorgang", "status", "fehler"])
-    protokoll("maileingang", None, f"eingang:{eingang.pk}", f"status:{eingang.status} anhaenge:{len(anhaenge)}")
-    if auftrag:
-        mails.intern_neue_unterlagen(auftrag)
+    eingang.bearbeitung_bis = None
+    eingang.save(update_fields=["auftrag", "belegvorgang", "status", "fehler", "bearbeitung_bis"])
+    protokoll("maileingang", None, f"eingang:{eingang.pk}",
+              f"status:{eingang.status} " + " ".join(f"{k}:{v}" for k, v in zaehler.items()))
+    if auftrag and seite:
+        transaction.on_commit(lambda: mails.intern_neue_unterlagen(auftrag))
         if settings.BELEGE_EINGANGSBESTAETIGUNG:
-            mails.eingang_bestaetigen(eingang)
+            transaction.on_commit(lambda: mails.eingang_bestaetigen(eingang))
 
 
 @transaction.atomic
@@ -255,15 +347,33 @@ def eingangsdatei_zuordnen(datei: Eingangsdatei, auftrag: Auftrag, benutzer) -> 
     from django.core.files.uploadedfile import SimpleUploadedFile
 
     daten = tresor.lesen(datei.speicher_id, datei.schluessel)
+    vorhanden = Dokument.objects.filter(auftrag=auftrag, sha256=datei.sha256, geloescht__isnull=True).first()
+    if vorhanden:  # liegt im Zielauftrag bereits vor: verknüpfen statt doppelt anlegen
+        datei.status, datei.dokument, datei.grund = "dublette", vorhanden, "Datei liegt in diesem Auftrag bereits vor"
+        _nach_commit_entfernen(datei)
+        datei.save(update_fields=["status", "dokument", "grund", "schluessel"])
+        protokoll("eingangsdatei_dublette", benutzer, f"eingangsdatei:{datei.pk}", f"auftrag:{auftrag.pk}")
+        return vorhanden
     vorgang = Belegvorgang.objects.create(auftrag=auftrag, quelle="email", status="eingegangen", erstellt_von=benutzer,
                                           abgeschlossen=timezone.now(), hinweis=f"E-Mail: {datei.maileingang.betreff}"[:1000])
     dok = datei_ablegen(SimpleUploadedFile(datei.originalname, daten), auftrag=auftrag, punkt=None, richtung="kunde",
                         benutzer=benutzer, hinweis=f"E-Mail-Eingang {datei.maileingang.eingang_id}", belegvorgang=vorgang, seite=1)
-    tresor.entfernen(datei.speicher_id)
-    datei.status, datei.dokument, datei.schluessel = "uebernommen", dok, None
+    datei.status, datei.dokument = "uebernommen", dok
+    _nach_commit_entfernen(datei)
     datei.save(update_fields=["status", "dokument", "schluessel"])
     protokoll("eingangsdatei_zugeordnet", benutzer, f"eingangsdatei:{datei.pk}", f"auftrag:{auftrag.pk}")
     return dok
+
+
+def anhaenge_passen(meta: dict, anhaenge: list[Anhang]) -> bool:
+    """Signierte Liste und hochgeladene Dateien müssen als Multimenge gleich sein (Befund H1):
+    gleiche Anzahl, gleiche Namen, gleiche Prüfsummen. Zusätzliche Kopien, fehlende oder veränderte
+    Anhänge werden abgewiesen."""
+    liste = meta.get("anhaenge", [])
+    if not isinstance(liste, list):
+        return False
+    erwartet = Counter((str(x["name"]), str(x["sha256"]).lower()) for x in liste)
+    return erwartet == Counter((x.name, hashlib.sha256(x.daten).hexdigest()) for x in anhaenge)
 
 
 def meta_lesen(meta: str) -> dict:

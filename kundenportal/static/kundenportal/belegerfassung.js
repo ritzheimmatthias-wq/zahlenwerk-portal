@@ -1,6 +1,8 @@
 // Smartphone-Belegerfassung: Seiten aufnehmen, prüfen, drehen, zuschneiden, verkleinern und
 // einzeln übertragen. Bei Verbindungsabbruch bleiben die Seiten im Browser (IndexedDB) und die
-// Übertragung wird beim nächsten Öffnen fortgesetzt. Ohne JavaScript funktioniert das Formular
+// Übertragung wird beim nächsten Öffnen fortgesetzt. Der gespeicherte Vorgang wird erst gelöscht,
+// wenn der Server den Abschluss bestätigt hat; der Abschluss ist serverseitig idempotent, eine
+// Wiederholung erzeugt weder einen zweiten Beleg noch eine zweite Benachrichtigung. Ohne JavaScript funktioniert das Formular
 // als normaler Upload mehrerer Dateien. Keine externen Bibliotheken, keine Inline-Skripte.
 (function () {
   "use strict";
@@ -161,7 +163,8 @@
       .then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (j) {
           if (r.ok) return j;
-          var e = new Error(j.fehler || ("Fehler " + r.status)); e.endgueltig = r.status >= 400 && r.status < 500; throw e;
+          var e = new Error(j.fehler || ("Fehler " + r.status)); e.endgueltig = r.status >= 400 && r.status < 500;
+          e.unbekannt = r.status === 404; throw e;
         });
       })
       .catch(function (e) {
@@ -190,9 +193,24 @@
       melden("Alle Seiten übertragen. Beleg wird abgeschlossen …");
       return senden(v.abschlussUrl, new FormData());
     }).then(function (j) {
-      return vergessen().then(function () { melden("Beleg ist eingegangen."); window.location.assign(j.weiter); });
+      if (!j || !j.abgeschlossen) { var e = new Error("Der Abschluss wurde nicht bestätigt."); throw e; }
+      // Erst nach bestätigtem Abschluss vergessen. Scheitert das Löschen, bleibt der Vorgang als
+      // abgeschlossen markiert und wird beim nächsten Öffnen nur noch abgeglichen.
+      v.abgeschlossen = true;
+      fortsetzen = null;
+      return merken(v).catch(function () {}).then(vergessen).catch(function () {}).then(function () {
+        melden("Beleg ist eingegangen.");
+        window.location.assign(j.weiter);
+      });
     }).catch(function (e) {
       knopf.disabled = false;
+      if (e.unbekannt) {
+        // Vorgang gibt es auf dem Server nicht (mehr) oder er gehört zu einem anderen Konto.
+        fortsetzen = null;
+        return vergessen().catch(function () {}).then(function () {
+          melden("Der gespeicherte Beleg ist auf dem Server nicht mehr vorhanden. Bitte die Seiten neu aufnehmen.");
+        });
+      }
       melden("Übertragung unterbrochen: " + e.message + " Die Seiten bleiben gespeichert. Bitte erneut auf „Beleg senden“ tippen.");
       fortsetzen = v;
     });
@@ -219,9 +237,13 @@
   });
 
   laden().then(function (v) {
-    if (v && v.seiten && v.seiten.some(function (s) { return !s.fertig; })) {
-      fortsetzen = v;
-      melden("Ein unterbrochener Beleg mit " + v.seiten.length + " Seite(n) wurde gefunden. Tippen Sie auf „Beleg senden“, um die Übertragung fortzusetzen.");
-    }
+    if (!v || !v.seiten) return;
+    if (v.abgeschlossen) { return vergessen(); } // Abschluss war bestätigt, nur das Löschen fehlte
+    // Auch wenn alle Seiten übertragen sind: ohne bestätigten Abschluss bleibt der Vorgang offen.
+    fortsetzen = v;
+    var offen = v.seiten.filter(function (s) { return !s.fertig; }).length;
+    melden(offen
+      ? "Ein unterbrochener Beleg mit " + v.seiten.length + " Seite(n) wurde gefunden. Tippen Sie auf „Beleg senden“, um die Übertragung fortzusetzen."
+      : "Ein Beleg mit " + v.seiten.length + " Seite(n) wurde übertragen, aber noch nicht abgeschlossen. Tippen Sie auf „Beleg senden“, um ihn abzuschließen.");
   }).catch(function () {});
 })();

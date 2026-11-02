@@ -32,6 +32,12 @@ Ohne ihn sind die Dateien auch aus der Sicherung nicht lesbar.
 4. Eigenen Zugang anlegen: `docker compose run --rm portal python manage.py createsuperuser`
    (danach im Admin-Bereich des Portals arbeiten, die Django-Verwaltung ist nicht eingebunden).
 5. Täglichen systemd-Timer für `docker compose run --rm loeschjob` einrichten.
+   Zusätzlich einen Timer (z. B. alle 15 Minuten) für
+   `docker compose run --rm portal python manage.py belege_wiederaufnahme`; er setzt gesicherte,
+   aber nicht abgeschlossene Maileingänge fort.
+   Die Anwendung soll einen eigenen Datenbankbenutzer ohne Eigentümerrechte an den Tabellen haben,
+   damit sie die Schutz-Trigger aus Migration 0003 nicht abschalten kann. Die Migrationen laufen mit
+   dem Eigentümer-Benutzer.
 6. Sicherung: Datenbank-Dump und Volume `portal-daten` per restic zur Hetzner Storage Box,
    Aufbewahrung höchstens 30 Tage (7 täglich, 4 wöchentlich). Wiederherstellung monatlich testen.
 7. Prüfen: Anmeldung mit Code, Upload, Virenscan mit EICAR-Testdatei, Download, Löschjob.
@@ -48,3 +54,6 @@ Die GitHub-Prüfung baut das Image bei jedem Pull Request und führt `betrieb/co
 ohne Netz (`--network none`) und nur mit Wegwerfschlüsseln aus. Geprüft werden: Import aller Pakete,
 Django-Systemprüfung, Migrationen auf einer leeren Wegwerf-Datenbank, statische Dateien,
 Anmeldeseite, PDF-Erzeugung und PDF-Prüfung. Das Image wird dabei weder veröffentlicht noch gestartet.
+
+Weitere CI-Jobs: `postgres` führt die gesamte Testreihe gegen eine Wegwerf-PostgreSQL aus (Schutz-Trigger,
+Migrationen 0001 → 0002 → 0003), `browser` prüft die Smartphone-Erfassung in Chromium.

@@ -13,6 +13,8 @@ from django.core import mail
 from django.core.management import call_command
 from django.urls import reverse
 
+from beispiel import pdf_muster
+from beispiel.portal_abrechnung import toml_jahr
 from kundenportal import belege, tresor
 from kundenportal.models import (
     Abrechnungslauf, Auftrag, Belegvorgang, Benutzer, Dokument, Eingangsdatei, Freigabe, Kunde, Maileingang, Objekt, Report,
@@ -27,58 +29,6 @@ JPG = b"\xff\xd8\xff\xe0" + b"1" * 64
 GEHEIM = "test-geheimnis-nur-fuer-tests"
 
 
-def toml_jahr(jahr: int, grundsteuer: str = "1000.00", heizung: str = "900.00") -> bytes:
-    return f'''
-[objekt]
-name = "Portalhaus (fiktiv)"
-anschrift = "Portalweg 1, 12345 Musterstadt"
-vermieter = "Erika Eigentümerin (fiktiv)"
-[abrechnung]
-von = {jahr}-01-01
-bis = {jahr}-12-31
-[[einheiten]]
-id = "WE1"
-abschnitte = [{{ nutzung = "wohnen", flaeche = "60" }}]
-[[einheiten]]
-id = "WE2"
-abschnitte = [{{ nutzung = "wohnen", flaeche = "40" }}]
-[[mietverhaeltnisse]]
-id = "MV1"
-einheit = "WE1"
-mieter = "Mietpartei Eins (fiktiv)"
-umlageart = "vorauszahlung"
-vorauszahlungen = {{ betriebskosten = "480.00", heizkosten = "480.00" }}
-vz_monatlich = {{ betriebskosten = "40.00", heizkosten = "40.00" }}
-[[mietverhaeltnisse]]
-id = "MV2"
-einheit = "WE2"
-mieter = "Mietpartei Zwei (fiktiv)"
-umlageart = "vorauszahlung"
-vorauszahlungen = {{ betriebskosten = "480.00", heizkosten = "360.00" }}
-vz_monatlich = {{ betriebskosten = "40.00", heizkosten = "30.00" }}
-[[kostenarten]]
-id = "grundsteuer"
-bezeichnung = "Grundsteuer"
-schluessel = "flaeche"
-umlagefaehig_bestaetigt = true
-[[kostenarten]]
-id = "heizung"
-bezeichnung = "Heizkosten"
-schluessel = "messdienst"
-heizkosten = true
-kategorie = "heizung"
-umlagefaehig_bestaetigt = true
-[[belege]]
-id = "GS{jahr}"
-lieferant = "Stadtkasse"
-rechnungsnummer = "GS-{jahr}"
-positionen = [{{ kostenart = "grundsteuer", brutto = "{grundsteuer}" }}]
-[[messdienst]]
-id = "MD{jahr}"
-anbieter = "Messdienst Beispiel"
-gesamt_brutto = "{heizung}"
-werte = [{{ einheit = "WE1", kostenart = "heizung", brutto = "500.00" }}, {{ einheit = "WE2", kostenart = "heizung", brutto = "{int(heizung.split('.')[0]) - 500}.00" }}]
-'''.encode()
 
 
 def datei(name, inhalt):
@@ -127,10 +77,10 @@ def lauf_endgueltig(client, auftrag, daten):
 def test_lauf_anlegen_versionieren_und_unveraenderlich(client, welt):
     anmelden(client, "chef@beispiel.test")
     url = reverse("intern_lauf_anlegen", args=[welt["a25"].pk])
-    client.post(url, {"daten": datei("d.toml", toml_jahr(2025))})
-    client.post(url, {"daten": datei("d.toml", toml_jahr(2025))})  # gleiche Eingabe → kein neuer Stand
+    client.post(url, {"daten": datei("d.toml", toml_jahr(2025, welt["o1"].kennung))})
+    client.post(url, {"daten": datei("d.toml", toml_jahr(2025, welt["o1"].kennung))})  # gleiche Eingabe → kein neuer Stand
     assert Abrechnungslauf.objects.filter(auftrag=welt["a25"]).count() == 1
-    client.post(url, {"daten": datei("d.toml", toml_jahr(2025, grundsteuer="1100.00"))})
+    client.post(url, {"daten": datei("d.toml", toml_jahr(2025, welt["o1"].kennung, grundsteuer="1100.00"))})
     l1, l2 = Abrechnungslauf.objects.filter(auftrag=welt["a25"]).order_by("version")
     assert (l1.version, l2.version) == (1, 2) and l1.eingabe_hash != l2.eingabe_hash
     # Rechenschritte gespeichert: Grundsteuer 1.100 nach 60/40 m²
@@ -148,7 +98,7 @@ def test_lauf_anlegen_versionieren_und_unveraenderlich(client, welt):
 def test_rote_warnung_sperrt_und_fehlerhafte_daten(client, welt):
     anmelden(client, "chef@beispiel.test")
     url = reverse("intern_lauf_anlegen", args=[welt["a25"].pk])
-    kaputt = toml_jahr(2025).replace(b'umlagefaehig_bestaetigt = true\n[[kostenarten]]\nid = "heizung"', b'[[kostenarten]]\nid = "heizung"')
+    kaputt = toml_jahr(2025, welt["o1"].kennung).replace(b'umlagefaehig_bestaetigt = true\n[[kostenarten]]\nid = "heizung"', b'[[kostenarten]]\nid = "heizung"')
     client.post(url, {"daten": datei("d.toml", kaputt)})
     lauf = Abrechnungslauf.objects.get()
     assert lauf.rote_warnungen == 1
@@ -156,14 +106,14 @@ def test_rote_warnung_sperrt_und_fehlerhafte_daten(client, welt):
     assert "Rote Warnungen" in r.content.decode()
     r = client.post(url, {"daten": datei("d.toml", b"kein toml = [")}, follow=True)
     assert "keine gültige TOML-Datei" in r.content.decode()
-    r = client.post(url, {"daten": datei("d.toml", toml_jahr(2025).replace(b'"1000.00"', b"1000.0"))}, follow=True)
+    r = client.post(url, {"daten": datei("d.toml", toml_jahr(2025, welt["o1"].kennung).replace(b'"1000.00"', b"1000.0"))}, follow=True)
     assert "als Text" in r.content.decode()
 
 
 def test_reports_rollen_und_mandantentrennung(client, welt):
     anmelden(client, "chef@beispiel.test")
-    lauf_endgueltig(client, welt["a24"], toml_jahr(2024, heizung="900.00"))
-    l25 = lauf_endgueltig(client, welt["a25"], toml_jahr(2025, heizung="1500.00"))
+    lauf_endgueltig(client, welt["a24"], toml_jahr(2024, welt["o1"].kennung, heizung="900.00"))
+    l25 = lauf_endgueltig(client, welt["a25"], toml_jahr(2025, welt["o1"].kennung, heizung="1500.00"))
     o1 = welt["o1"]
     client.post(reverse("intern_report_erstellen", args=[o1.pk]), {"art": "vorauszahlung", "lauf": l25.pk})
     client.post(reverse("intern_report_erstellen", args=[o1.pk]), {"art": "kostenverlauf"})
@@ -224,7 +174,7 @@ def test_reports_rollen_und_mandantentrennung(client, welt):
 
 def test_report_nur_aus_endgueltigem_stand(client, welt):
     anmelden(client, "chef@beispiel.test")
-    client.post(reverse("intern_lauf_anlegen", args=[welt["a25"].pk]), {"daten": datei("d.toml", toml_jahr(2025))})
+    client.post(reverse("intern_lauf_anlegen", args=[welt["a25"].pk]), {"daten": datei("d.toml", toml_jahr(2025, welt["o1"].kennung))})
     lauf = Abrechnungslauf.objects.get()
     r = client.post(reverse("intern_report_erstellen", args=[welt["o1"].pk]), {"art": "vorauszahlung", "lauf": lauf.pk}, follow=True)
     assert "endgültig" in r.content.decode() and not Report.objects.exists()
@@ -233,9 +183,10 @@ def test_report_nur_aus_endgueltigem_stand(client, welt):
     assert r.status_code == 404
 
 
+@pytest.mark.manipulation
 def test_verfaelschter_stand_wird_erkannt(client, welt):
     anmelden(client, "chef@beispiel.test")
-    client.post(reverse("intern_lauf_anlegen", args=[welt["a25"].pk]), {"daten": datei("d.toml", toml_jahr(2025))})
+    client.post(reverse("intern_lauf_anlegen", args=[welt["a25"].pk]), {"daten": datei("d.toml", toml_jahr(2025, welt["o1"].kennung))})
     lauf = Abrechnungslauf.objects.get()
     stand = lauf.stand
     stand["ergebnis"]["mietverhaeltnisse"][0]["saldo"] = "0.00"
@@ -309,16 +260,16 @@ META = {"message_id": "<beleg-1@beispiel.test>", "absender": "eigentuemerin@beis
 
 
 def test_eingang_signatur_pflicht(client, welt, settings):
-    assert post_eingang(client, META, [("r.pdf", b"%PDF-1.4 x")], sig="falsch").status_code == 403
-    assert post_eingang(client, META, [("r.pdf", b"%PDF-1.4 x")], zeit=time.time() - 3600).status_code == 403
-    assert post_eingang(client, META, [("r.pdf", b"%PDF-1.4 x")], geheim="anderes").status_code == 403
+    assert post_eingang(client, META, [("r.pdf", pdf_muster.beleg("x"))], sig="falsch").status_code == 403
+    assert post_eingang(client, META, [("r.pdf", pdf_muster.beleg("x"))], zeit=time.time() - 3600).status_code == 403
+    assert post_eingang(client, META, [("r.pdf", pdf_muster.beleg("x"))], geheim="anderes").status_code == 403
     settings.BELEGE_WEBHOOK_GEHEIMNIS = ""
-    assert post_eingang(client, META, [("r.pdf", b"%PDF-1.4 x")]).status_code == 404
+    assert post_eingang(client, META, [("r.pdf", pdf_muster.beleg("x"))]).status_code == 404
     assert not Maileingang.objects.exists()
 
 
 def test_eingang_zuordnung_dubletten_und_text_nur_hinweis(client, welt):
-    r = post_eingang(client, META, [("rechnung.pdf", b"%PDF-1.4 Rechnung"), ("foto.jpg", JPG)])
+    r = post_eingang(client, META, [("rechnung.pdf", pdf_muster.beleg("Rechnung")), ("foto.jpg", JPG)])
     assert r.status_code == 200 and r.json()["status"] == "verarbeitet"
     e = Maileingang.objects.get()
     assert e.auftrag == welt["a25"] and e.belegvorgang.quelle == "email" and e.belegvorgang.seiten.count() == 2
@@ -326,25 +277,25 @@ def test_eingang_zuordnung_dubletten_und_text_nur_hinweis(client, welt):
     assert welt["a25"].status == Auftrag.objects.get(pk=welt["a25"].pk).status  # Text ändert nichts
     assert not [m for m in mail.outbox if "eigentuemerin@beispiel.test" in m.to]  # keine automatische Antwort
     # Gleiche Message-ID erneut (Wiederholung von n8n): keine Doppelverarbeitung
-    r = post_eingang(client, META, [("rechnung.pdf", b"%PDF-1.4 Rechnung"), ("foto.jpg", JPG)])
+    r = post_eingang(client, META, [("rechnung.pdf", pdf_muster.beleg("Rechnung")), ("foto.jpg", JPG)])
     assert r.json()["neu"] is False and Dokument.objects.count() == 2
     # Neue Nachricht mit bereits eingegangener Datei → Dublette
-    post_eingang(client, dict(META, message_id="<beleg-2@beispiel.test>"), [("nochmal.pdf", b"%PDF-1.4 Rechnung")])
+    post_eingang(client, dict(META, message_id="<beleg-2@beispiel.test>"), [("nochmal.pdf", pdf_muster.beleg("Rechnung"))])
     assert Eingangsdatei.objects.get(maileingang__message_id="<beleg-2@beispiel.test>").status == "dublette"
     assert Dokument.objects.count() == 2
 
 
 def test_eingang_quarantaene_und_zuordnung_offen(client, welt):
-    r = post_eingang(client, dict(META, message_id="<q@beispiel.test>"), [("makro.docx", b"PK\x03\x04kaputt"), ("ok.pdf", b"%PDF-1.4 ok")])
+    r = post_eingang(client, dict(META, message_id="<q@beispiel.test>"), [("makro.docx", b"PK\x03\x04kaputt"), ("ok.pdf", pdf_muster.beleg("ok"))])
     e = Maileingang.objects.get(message_id="<q@beispiel.test>")
     assert e.status == "quarantaene"
     q = e.dateien.get(originalname="makro.docx")
     assert q.status == "quarantaene" and q.schluessel and q.dokument is None
-    r = post_eingang(client, dict(META, message_id="<u@beispiel.test>", absender="unbekannt@beispiel.test"), [("u.pdf", b"%PDF-1.4 u")])
+    r = post_eingang(client, dict(META, message_id="<u@beispiel.test>", absender="unbekannt@beispiel.test"), [("u.pdf", pdf_muster.beleg("u"))])
     e = Maileingang.objects.get(message_id="<u@beispiel.test>")
     assert e.status == "zuordnung_offen" and e.auftrag is None and "keinem Kundenzugang" in e.fehler
     d = e.dateien.get()
-    assert d.status == "zuordnung_offen" and tresor.lesen(d.speicher_id, d.schluessel) == b"%PDF-1.4 u"
+    assert d.status == "zuordnung_offen" and tresor.lesen(d.speicher_id, d.schluessel) == pdf_muster.beleg("u")
     # Zuordnung durch Zahlenwerk
     anmelden(client, "chef@beispiel.test")
     assert "u.pdf" in client.get(reverse("intern_belege")).content.decode()
@@ -355,12 +306,12 @@ def test_eingang_quarantaene_und_zuordnung_offen(client, welt):
 
 def test_eingang_betreff_referenz_und_fremder_auftrag(client, welt):
     Auftrag.objects.create(objekt=welt["o1"], leistung="rechnungspruefung", jahr=2025)
-    r = post_eingang(client, dict(META, message_id="<r1@x>", betreff=f"Belege A-{welt['a25'].pk}"), [("a.pdf", b"%PDF-1.4 a")])
+    r = post_eingang(client, dict(META, message_id="<r1@x>", betreff=f"Belege A-{welt['a25'].pk}"), [("a.pdf", pdf_muster.beleg("a"))])
     assert Maileingang.objects.get(message_id="<r1@x>").auftrag == welt["a25"]
-    post_eingang(client, dict(META, message_id="<r2@x>", betreff=f"Auftrag {welt['b25'].pk}"), [("b.pdf", b"%PDF-1.4 b")])
+    post_eingang(client, dict(META, message_id="<r2@x>", betreff=f"Auftrag {welt['b25'].pk}"), [("b.pdf", pdf_muster.beleg("b"))])
     e = Maileingang.objects.get(message_id="<r2@x>")
     assert e.auftrag is None and "gehört nicht zu diesem Absender" in e.fehler
-    post_eingang(client, dict(META, message_id="<r3@x>", betreff="ohne Nummer"), [("c.pdf", b"%PDF-1.4 c")])
+    post_eingang(client, dict(META, message_id="<r3@x>", betreff="ohne Nummer"), [("c.pdf", pdf_muster.beleg("c"))])
     assert Maileingang.objects.get(message_id="<r3@x>").status == "zuordnung_offen"  # zwei offene Aufträge
 
 
@@ -368,7 +319,7 @@ def test_eingang_anhaenge_muessen_zur_signierten_liste_passen(client, welt):
     meta = dict(META, anhaenge=[{"name": "a.pdf", "sha256": "0" * 64}])
     text = json.dumps(meta)
     zeit = str(int(time.time()))
-    r = client.post(reverse("eingang_belege"), {"meta": text, "anhang": [datei("a.pdf", b"%PDF-1.4 a")]},
+    r = client.post(reverse("eingang_belege"), {"meta": text, "anhang": [datei("a.pdf", pdf_muster.beleg("a"))]},
                     HTTP_X_ZAHLENWERK_ZEIT=zeit, HTTP_X_ZAHLENWERK_SIGNATUR=belege.signatur(GEHEIM, zeit, text))
     assert r.status_code == 400 and not Maileingang.objects.exists()
 
@@ -380,19 +331,20 @@ def test_eingang_fehler_geht_nicht_verloren(client, welt, monkeypatch):
         raise virenscan.ScanFehler("aus")
 
     monkeypatch.setattr(virenscan, "pruefen", kaputt)
-    r = post_eingang(client, dict(META, message_id="<f@x>"), [("a.pdf", b"%PDF-1.4 a")])
+    r = post_eingang(client, dict(META, message_id="<f@x>"), [("a.pdf", pdf_muster.beleg("a"))])
     assert r.status_code == 500
     e = Maileingang.objects.get(message_id="<f@x>")
     assert e.status == "fehler" and e.versuche == 1
     monkeypatch.undo()
-    r = post_eingang(client, dict(META, message_id="<f@x>"), [("a.pdf", b"%PDF-1.4 a")])
+    r = post_eingang(client, dict(META, message_id="<f@x>"), [("a.pdf", pdf_muster.beleg("a"))])
     e.refresh_from_db()
     assert r.status_code == 200 and e.status == "verarbeitet" and e.versuche == 2
 
 
-def test_eingangsbestaetigung_nur_wenn_eingeschaltet(client, welt, settings):
+def test_eingangsbestaetigung_nur_wenn_eingeschaltet(client, welt, settings, django_capture_on_commit_callbacks):
     settings.BELEGE_EINGANGSBESTAETIGUNG = True
-    post_eingang(client, dict(META, message_id="<b@x>"), [("a.pdf", b"%PDF-1.4 bb")])
+    with django_capture_on_commit_callbacks(execute=True):
+        post_eingang(client, dict(META, message_id="<b@x>"), [("a.pdf", pdf_muster.beleg("bb"))])
     m = [m for m in mail.outbox if m.to == ["eigentuemerin@beispiel.test"]]
     assert len(m) == 1 and "keine fachliche Freigabe" in m[0].body
 
@@ -420,7 +372,7 @@ class FalschesImap:
             if a[0] == b"1":
                 m["Message-ID"] = "<imap-1@beispiel.test>"
             m.set_content("Hinweistext")
-            m.add_attachment(b"%PDF-1.4 imap", maintype="application", subtype="pdf", filename="imap.pdf")
+            m.add_attachment(pdf_muster.beleg("imap"), maintype="application", subtype="pdf", filename="imap.pdf")
             return "OK", [(b"1 (BODY[] {1}", m.as_bytes()), b")"]
         if befehl == "STORE":
             FalschesImap.markiert.append(a[0])
@@ -438,7 +390,7 @@ def test_imap_rueckfallweg(welt, settings, monkeypatch):
     monkeypatch.setattr(belege_imap_abruf.Command, "verbindung", FalschesImap)
     out = io.StringIO()
     call_command("belege_imap_abruf", stdout=out, stderr=io.StringIO())
-    assert "1 übernommen, 1 mit Fehler" in out.getvalue()  # Nachricht 2 ohne Message-ID bleibt ungelesen
+    assert "1 gesichert, 1 mit Fehler" in out.getvalue()  # Nachricht 2 ohne Message-ID bleibt ungelesen
     assert FalschesImap.markiert == [b"1"]
     e = Maileingang.objects.get()
     assert e.kanal == "imap" and e.status == "verarbeitet" and e.empfangen == datetime(2026, 11, 2, 9, 0, tzinfo=tz.utc)

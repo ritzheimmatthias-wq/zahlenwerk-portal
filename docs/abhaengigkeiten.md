@@ -4,7 +4,6 @@
 | --- | --- | --- | --- |
 | defusedxml | sicheres Einlesen von CAMT-XML aus Uploads | PSF-2.0 | 31.10.2026 |
 | pytest (nur Tests) | Testlauf | MIT | 31.10.2026 |
-| pypdf (nur Tests) | Text aus erzeugten Abrechnungs-PDFs prüfen | BSD-3-Clause | 02.11.2026 |
 | WeasyPrint (optional `[pdf]`) | PDF-Bericht aus HTML/CSS | BSD-3-Clause | 01.11.2026 |
 | ↳ pydyf, tinycss2, cssselect2, webencodings | Abhängigkeiten von WeasyPrint | BSD | 01.11.2026 |
 | ↳ tinyhtml5, fonttools, cffi, Pillow | Abhängigkeiten von WeasyPrint | MIT, MIT-0, MIT-CMU | 01.11.2026 |
@@ -19,6 +18,9 @@
 | psycopg (nur Betrieb) | PostgreSQL-Anbindung | LGPL-3.0, unverändert als Bibliothek | 01.11.2026 |
 | pypdf (`[portal]`) | Seitenauszüge der Dokumentvorlagen, Strukturprüfung hochgeladener PDFs auf aktive Inhalte (nur lesen), PDF-Prüfungen in Tests | BSD-3-Clause | 01.11.2026 |
 | pytest-django (nur Tests) | Tests des Portals | BSD-3-Clause | 01.11.2026 |
+| Playwright für Python (nur Browsertests, `[browser]`) | Browserprüfung der Smartphone-Erfassung, Layout 320/375/390 px | Apache-2.0 | 02.11.2026 |
+| ↳ greenlet, pyee, typing-extensions | Abhängigkeiten von Playwright | MIT bzw. MIT AND PSF-2.0, PSF-2.0 | 02.11.2026 |
+| Chromium (nur Browsertests, von Playwright geladen) | Testbrowser | BSD-3-Clause u. a., eigenes Programm, kein Code übernommen | 02.11.2026 |
 | ClamAV (eigener Container) | Virenscan, nur über das Netzprotokoll angesprochen | GPL-2.0, eigenes Programm, kein Code übernommen | 01.11.2026 |
 | PostgreSQL (eigener Container) | Datenbank | PostgreSQL-Lizenz (BSD-ähnlich) | 01.11.2026 |
 | pdftotext (poppler-utils, Systemprogramm) | Text aus PDF-Kontoauszügen | GPL-2.0/3.0, nur als eigenes Programm aufgerufen, kein Code übernommen | 01.11.2026 |

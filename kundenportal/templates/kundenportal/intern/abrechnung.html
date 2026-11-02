@@ -2,7 +2,8 @@
 {% block titel %}Betriebskosten · {{ o.bezeichnung }}{% endblock %}
 {% block inhalt %}
 <div><a class="meta" href="{% url 'intern' %}">‹ Zurück zum Eingang</a><h1>Betriebskosten und Jahresreports · {{ o.bezeichnung }}</h1>
-<p class="lead">Berechnung ausschließlich im Rechenkern, deterministisch und versioniert. Freigabestufen: Entwurf → fachlich geprüft → vom Eigentümer freigegeben → endgültig. Reports nur aus endgültigen Ständen. Nichts wird versendet.</p></div>
+<p class="lead">Berechnung ausschließlich im Rechenkern, deterministisch und versioniert. Freigabestufen: Entwurf → fachlich geprüft → vom Eigentümer freigegeben → endgültig. Reports nur aus endgültigen Ständen. Nichts wird versendet.</p>
+<p class="meta">Objektkennung für die Abrechnungsdaten: <code>[objekt] portal_id = "{{ o.kennung }}"</code>. Der Abrechnungszeitraum muss im Auftragsjahr enden; Daten eines anderen Objekts oder Jahres werden abgewiesen.</p></div>
 {% for a in auftraege %}
 <div class="card"><h2>{{ a }}</h2>
   <div class="tbl-wrap"><table><thead><tr><th>Version</th><th>Status</th><th>Warnungen</th><th>Prüfsumme</th><th>Erstellt</th><th>Aktion</th></tr></thead><tbody>

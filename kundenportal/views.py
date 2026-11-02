@@ -4,6 +4,7 @@ import hashlib
 from datetime import timedelta
 
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
@@ -172,7 +173,8 @@ def start(request):
 
 def objekt(request, pk: int):
     o = get_object_or_404(_objekte(request.user), pk=pk)
-    berichte = o.reports.all() if request.user.is_staff else o.reports.filter(status="freigegeben")
+    berichte = o.reports.all() if request.user.is_staff else [
+        r for r in o.reports.filter(status="freigegeben") if abrechnung.gepruefter_snapshot(r) is not None]
     return render(request, "kundenportal/objekt.html", {"o": o, "auftraege": [(a, *a.fortschritt()) for a in o.auftraege.all()],
                                                         "berichte": berichte})
 
@@ -487,29 +489,37 @@ def bericht_css(request):
     return HttpResponse(REPORT_CSS, content_type="text/css; charset=utf-8")
 
 
-def _bericht(user, pk: int) -> Report:
+def _bericht(user, pk: int) -> tuple[Report, dict]:
+    """Report und geprüfter Snapshot. Vor jeder Anzeige und jedem PDF wird der Report vollständig neu geprüft
+    (Inhalt, Statusverlauf, Grundlagen). Verfälschte Inhalte werden nie ausgeliefert."""
     r = get_object_or_404(Report.objects.select_related("objekt"), pk=pk)
     if not _objekte(user).filter(pk=r.objekt_id).exists():
         raise Http404
     if not user.is_staff and not abrechnung.fuer_kunde_sichtbar(r):
         raise Http404
-    return r
+    snapshot = abrechnung.gepruefter_snapshot(r)
+    if snapshot is None:
+        protokoll("report_gesperrt", user, f"report:{r.pk}")
+        if user.is_staff:
+            raise PermissionDenied("Report ist nicht unverfälscht und gesperrt. Details im Protokoll.")
+        raise Http404
+    return r, snapshot
 
 
 def bericht(request, pk: int):
     from betriebskosten.reportausgabe import kostenverlauf_html, vorauszahlung_html
 
-    r = _bericht(request.user, pk)
+    r, snapshot = _bericht(request.user, pk)
     zurueck = reverse("intern_abrechnung_objekt", args=[r.objekt_id]) if request.user.is_staff else reverse("objekt", args=[r.objekt_id])
     portal = {"css_href": reverse("bericht_css"), "zurueck": zurueck}
     if r.art == "vorauszahlung":
         mv = request.GET.get("mv") or None
         try:
-            html = vorauszahlung_html(r.snapshot(), r.status, mv, **portal)
+            html = vorauszahlung_html(snapshot, r.status, mv, **portal)
         except ValueError:
             raise Http404 from None
     else:
-        html = kostenverlauf_html(r.snapshot(), r.status, **portal)
+        html = kostenverlauf_html(snapshot, r.status, **portal)
     protokoll("report_ansicht", request.user, f"report:{r.pk}")
     return HttpResponse(html)
 
@@ -517,8 +527,8 @@ def bericht(request, pk: int):
 def bericht_pdf(request, pk: int):
     from betriebskosten.reportausgabe import report_pdf
 
-    r = _bericht(request.user, pk)
-    inhalt = report_pdf(r.snapshot(), r.status)
+    r, snapshot = _bericht(request.user, pk)
+    inhalt = report_pdf(snapshot, r.status)
     protokoll("report_download", request.user, f"report:{r.pk}")
     antwort = HttpResponse(inhalt, content_type="application/pdf")
     name = f"{r.get_art_display()} {r.objekt.bezeichnung} Nr {r.nummer}.pdf"
@@ -599,10 +609,12 @@ def beleg_seite(request, vid: int):
 def beleg_abschliessen(request, vid: int):
     v = _vorgang(request.user, vid)
     try:
-        belege.vorgang_abschliessen(v, request.user)
+        neu = belege.vorgang_abschliessen(v, request.user)
     except Abgelehnt as e:
         return JsonResponse({"fehler": str(e)}, status=422)
-    return JsonResponse({"status": v.status, "seiten": v.seiten.count(), "weiter": reverse("auftrag", args=[v.auftrag_id])})
+    return JsonResponse({"status": v.status, "abgeschlossen": True, "bereits_abgeschlossen": not neu,
+                         "seiten": v.seiten.filter(geloescht__isnull=True).count(),
+                         "weiter": reverse("auftrag", args=[v.auftrag_id])})
 
 
 # --- Eingang belege@ (n8n oder IMAP-Rückfallweg) ----------------------------------------
@@ -619,26 +631,31 @@ def eingang_belege(request):
         return JsonResponse({"fehler": "nicht autorisiert"}, status=403 if settings.BELEGE_WEBHOOK_GEHEIMNIS else 404)
     try:
         meta = belege.meta_lesen(meta_text)
-        erwartet = {(x["name"], x["sha256"]) for x in meta.get("anhaenge", [])}
         anhaenge = [belege.Anhang(f.name, f.read()) for f in request.FILES.getlist("anhang")]
-        if {(x.name, hashlib.sha256(x.daten).hexdigest()) for x in anhaenge} != erwartet:
+        if not belege.anhaenge_passen(meta, anhaenge):
+            protokoll("eingang_abgewiesen", None, "belege", "Anhänge passen nicht zur signierten Liste")
             return JsonResponse({"fehler": "Anhänge passen nicht zur signierten Liste"}, status=400)
         empfangen = None
         if meta.get("empfangen"):
             from datetime import datetime
 
             empfangen = datetime.fromisoformat(meta["empfangen"])
-    except (ValueError, KeyError, TypeError):
-        return JsonResponse({"fehler": "Ungültige Angaben"}, status=400)
-    try:
-        eingang, neu = belege.verarbeite_eingang(
+        eingang, neu = belege.annehmen(
             message_id=meta.get("message_id", ""), absender=meta.get("absender", ""), betreff=meta.get("betreff", ""),
             text=meta.get("text", ""), empfangen=empfangen, anhaenge=anhaenge, kanal="webhook")
-    except ValueError as e:
-        return JsonResponse({"fehler": str(e)}, status=400)
-    except Exception:
-        return JsonResponse({"fehler": "Verarbeitung fehlgeschlagen, bitte erneut senden"}, status=500)
-    return JsonResponse({"eingang": str(eingang.eingang_id), "status": eingang.status, "neu": neu})
+    except (ValueError, KeyError, TypeError) as e:
+        return JsonResponse({"fehler": str(e) if isinstance(e, ValueError) else "Ungültige Angaben"}, status=400)
+    except Exception:  # nichts gesichert: n8n soll erneut senden
+        return JsonResponse({"fehler": "Übernahme fehlgeschlagen, bitte erneut senden", "gesichert": False}, status=500)
+    try:
+        eingang = belege.verarbeiten(eingang.pk)
+    except Exception:  # gesichert, aber Verarbeitung fehlgeschlagen: Wiederholung oder Wiederaufnahme setzt fort
+        return JsonResponse({"eingang": str(eingang.eingang_id), "status": "fehler", "neu": neu, "gesichert": True,
+                             "fehler": "Verarbeitung fehlgeschlagen, bitte erneut senden"}, status=500)
+    antwort = {"eingang": str(eingang.eingang_id), "status": eingang.status, "neu": neu, "gesichert": eingang.roh_gespeichert,
+               "dateien": {s: eingang.dateien.filter(status=s).count() for s in ("uebernommen", "dublette", "quarantaene", "zuordnung_offen")}}
+    # 202: sicher gespeichert, aber noch in Bearbeitung durch einen anderen Lauf
+    return JsonResponse(antwort, status=200 if eingang.status in Maileingang.ABGESCHLOSSEN else 202)
 
 
 # --- Intern: Abrechnung, Reports, Belegeingang -----------------------------------------

@@ -62,7 +62,14 @@ Jahresreports. Eigentümer sehen nur freigegebene Reports ihres Objekts (Ansicht
 Belege kommen per Upload, Smartphone-Erfassung (`/auftrag/<id>/beleg/`, für Kunden erst mit
 `PORTAL_MOBILE_ERFASSUNG_FUER_KUNDEN=1`) oder über das Postfach belege@ (n8n ruft
 `/eingang/belege/` signiert auf; Rückfallweg `python manage.py belege_imap_abruf`).
+Der Eingang über belege@ ist zweistufig (erst verschlüsselt sichern, dann verarbeiten);
+`python manage.py belege_wiederaufnahme` setzt abgebrochene Eingänge fort. Abrechnungsdaten müssen
+die Portal-Kennung des Objekts (`[objekt] portal_id`) enthalten und zum Auftragsjahr passen.
 Einzelheiten, Schnittstelle und Berechtigungscheck: [docs/belegeingang-und-reports.md](docs/belegeingang-und-reports.md).
+
+Tests gegen PostgreSQL: `PORTAL_TEST_POSTGRES=1 PORTAL_TEST_PG_HOST=… python -m pytest` (nur Wegwerf-Datenbank).
+Browsertests: `pip install -e ".[test,browser]" && python -m playwright install chromium`, dann
+`python -m pytest tests/test_browser_belegerfassung.py`.
 
 ## Betriebskostenabrechnung (Generator, Entwurf)
 
