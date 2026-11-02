@@ -16,6 +16,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from .modell import NULL, cent
 from .reportregeln import REPORT_REGELN_VERSION, Reportkonfiguration
+from .version import stand_fehler
 
 ARTEN = ("betriebskosten", "heizkosten")
 ART_TEXT = {"betriebskosten": "Betriebskosten", "heizkosten": "Heiz- und Warmwasserkosten"}
@@ -45,7 +46,20 @@ def _eur(b: Decimal) -> str:
     return f"{'-' if b < 0 else ''}{s} €"
 
 
+def volles_jahr(z: dict) -> bool:
+    """True, wenn der Abrechnungszeitraum genau zwölf Monate umfasst (auch abweichendes Wirtschaftsjahr)."""
+    von, bis = date.fromisoformat(z["von"]), date.fromisoformat(z["bis"])
+    try:
+        ende = von.replace(year=von.year + 1)
+    except ValueError:  # 29.02.
+        ende = date(von.year + 1, 3, 1)
+    return (ende - bis).days == 1
+
+
 def grundlage_pruefen(stand: dict, status: str) -> None:
+    fehler = stand_fehler(stand)
+    if fehler:
+        raise Reportfehler(f"Der Berechnungsstand ist nicht unverfälscht ({'; '.join(fehler)}). Kein Report.")
     if status != "endgueltig":
         raise Reportfehler(f"Version {stand['version']} hat den Status „{status or 'unbekannt'}“. "
                            "Reports werden nur aus der endgültig freigegebenen Abrechnungsversion erzeugt.")
@@ -109,6 +123,10 @@ def analysiere(stand: dict, status: str, konfig: Reportkonfiguration) -> dict:
             sperre.append("Vertragliche Einordnung (Vorauszahlung oder Pauschale) ist nicht erfasst")
         if beendet:
             sperre.append(f"Mietverhältnis endete am {date.fromisoformat(me['zeitraum']['bis']):%d.%m.%Y}; keine künftige Vorauszahlung")
+        if not volles_jahr(jahr):
+            # Ohne belegte fachliche Regel keine Hochrechnung eines verkürzten Abrechnungsjahres (Befund W5).
+            sperre.append(f"Verkürztes Abrechnungsjahr ({jahrestage} Tage): Die Kosten lassen sich nicht belastbar "
+                          "auf zwölf Monate hochrechnen, insbesondere Heizkosten schwanken jahreszeitlich")
         if tage < r.mindest_nutzungstage:
             sperre.append(f"Nutzungszeitraum {tage} Tage, weniger als {r.mindest_nutzungstage} Tage: Hochrechnung nicht belastbar")
         faktor = Decimal(jahrestage) / Decimal(tage)

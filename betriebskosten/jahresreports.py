@@ -16,7 +16,7 @@ from .kostenverlauf import bericht
 from .reportablage import ReportAblage
 from .reportausgabe import report_pdf
 from .reportregeln import Reportkonfiguration, lade_konfiguration
-from .version import Ablage
+from .version import Ablage, Freigabefehler
 from .vorauszahlung import Reportfehler, analysiere
 
 
@@ -26,7 +26,11 @@ def _endgueltig(ablage: Ablage, version: int | None) -> tuple[dict, str]:
         if not fertig:
             raise Reportfehler(f"{ablage.pfad}: keine endgültige Abrechnungsversion vorhanden.")
         version = fertig[-1]
-    return ablage.lesen(version), ablage.status(version)
+    try:
+        stand = ablage.pruefen(version)  # beschädigter Stand oder Audit-Log: kein Report
+    except Freigabefehler as f:
+        raise Reportfehler(str(f)) from None
+    return stand, ablage.status(version)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -52,8 +56,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Report nicht erstellt: {f}")
         return 1
     ra = ReportAblage(ablagen[-1])
-    nummer, neu = ra.speichern(inhalt, zeit=datetime.now().astimezone(), person=a.person)
-    snapshot, status = ra.lesen(a.report, nummer), ra.status(a.report, nummer)
+    try:
+        nummer, neu = ra.speichern(inhalt, zeit=datetime.now().astimezone(), person=a.person)
+    except Freigabefehler as f:
+        print(f"Report nicht erstellt: {f}")
+        return 1
+    try:
+        snapshot, status = ra.pruefen(a.report, nummer), ra.status(a.report, nummer)
+    except Freigabefehler as f:
+        print(f"Report nicht ausgegeben: {f}")
+        return 1
     ziel = Path(a.ausgabe)
     ziel.mkdir(parents=True, exist_ok=True)
     datei = ziel / f"{a.report}_r{nummer:03d}.pdf"

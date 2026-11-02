@@ -43,7 +43,8 @@ class ReportAblage:
         daten = json.loads(kanonisch(inhalt))
         h = inhalt_hash(daten)
         vorhanden = self.nummern(art)
-        if vorhanden and self.lesen(art, vorhanden[-1])["inhalt_hash"] == h:
+        if vorhanden and self.lesen(art, vorhanden[-1]).get("inhalt_hash") == h:
+            self.pruefen(art, vorhanden[-1])  # beschädigten Altstand nicht als identisch zurückgeben
             return vorhanden[-1], False
         nummer = (vorhanden[-1] + 1) if vorhanden else 1
         snapshot = {"report": art, "nummer": nummer, "erstellt": zeit.isoformat(), "erstellt_von": person,
@@ -57,6 +58,44 @@ class ReportAblage:
                             "person": person, "zeit": zeit.isoformat()})
         return nummer, True
 
+    def pruefen(self, art: str, nummer: int) -> dict:
+        """Liest einen Snapshot und prüft Inhalt, Kopfdaten und Audit-Log. Wirft Freigabefehler.
+
+        Schutzgrenze: Prüfsummen und Audit-Kette erkennen nachträgliche Änderungen, aber nicht, wenn jemand
+        mit Schreibrecht auf die Ablage Snapshot und gesamtes Audit-Log konsistent neu schreibt.
+        """
+        if nummer not in self.nummern(art):
+            raise Freigabefehler(f"Report {art} Nr. {nummer} gibt es nicht")
+        fehler = []
+        try:
+            snapshot = self.lesen(art, nummer)
+            inhalt = snapshot["inhalt"]
+            if inhalt_hash(inhalt) != snapshot["inhalt_hash"]:
+                fehler.append("Inhalt passt nicht zur Prüfsumme")
+            if (snapshot["report"], snapshot["nummer"]) != (art, nummer) or inhalt.get("report") != art:
+                fehler.append("Kopfdaten passen nicht zur Datei")
+            for feld in ("grundlage", "report_regeln_version", "regeln"):
+                if kanonisch(snapshot[feld]) != kanonisch(inhalt[feld]):
+                    fehler.append(f"{feld} weicht vom Inhalt ab")
+        except (OSError, ValueError, KeyError, TypeError):
+            raise Freigabefehler(f"Report {art} Nr. {nummer} ist nicht lesbar. Weitere Schritte gesperrt.") from None
+        if not self.ablage.audit_unverfaelscht():
+            fehler.append("Audit-Log ist beschädigt")
+        erstellt = [e for e in self.ablage.audit()
+                    if e.get("ereignis") == "report_erstellt" and e.get("report") == art and e.get("nummer") == nummer]
+        if len(erstellt) != 1 or erstellt[0].get("inhalt_hash") != snapshot["inhalt_hash"]:
+            fehler.append("Snapshot weicht vom Audit-Log ab")
+        if fehler:
+            raise Freigabefehler(f"Report {art} Nr. {nummer} ist nicht unverfälscht ({'; '.join(fehler)}). Gesperrt.")
+        return snapshot
+
+    def freigegeben(self, art: str, nummer: int) -> dict:
+        """Geprüfter Snapshot eines freigegebenen Reports, sonst Freigabefehler. Für Ausgabe und Download."""
+        snapshot = self.pruefen(art, nummer)
+        if self.status(art, nummer) != "freigegeben":
+            raise Freigabefehler(f"Report {art} Nr. {nummer} ist nicht freigegeben")
+        return snapshot
+
     def status(self, art: str, nummer: int) -> str:
         st = [e["status"] for e in self.ablage.audit()
               if e["ereignis"] == "report_status" and e["report"] == art and e["nummer"] == nummer]
@@ -67,6 +106,7 @@ class ReportAblage:
             raise Freigabefehler(f"Unbekannter Status {neu}")
         if nummer not in self.nummern(art):
             raise Freigabefehler(f"Report {art} Nr. {nummer} gibt es nicht")
+        self.pruefen(art, nummer)
         alt = self.status(art, nummer)
         if alt == REPORT_STATUS[-1] or REPORT_STATUS.index(neu) != REPORT_STATUS.index(alt) + 1:
             raise Freigabefehler(f"Von {alt} ist dieser Schritt nicht möglich")
@@ -74,11 +114,12 @@ class ReportAblage:
             raise Freigabefehler("Nur der neueste Report kann freigegeben werden")
         if not person:
             raise Freigabefehler("Freigabe braucht eine verantwortliche Person")
-        snapshot = self.lesen(art, nummer)
-        if inhalt_hash(snapshot["inhalt"]) != snapshot["inhalt_hash"]:
-            raise Freigabefehler("Report-Inhalt passt nicht zur gespeicherten Prüfsumme")
         self.ablage._audit({"ereignis": "report_status", "report": art, "nummer": nummer, "status": neu,
                             "person": person, "zeit": zeit.isoformat(), "notiz": notiz})
 
     def download_erlaubt(self, art: str, nummer: int) -> bool:
-        return self.status(art, nummer) == "freigegeben"
+        try:
+            self.freigegeben(art, nummer)
+        except Freigabefehler:
+            return False
+        return True
