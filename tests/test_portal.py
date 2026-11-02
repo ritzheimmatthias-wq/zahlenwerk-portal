@@ -13,6 +13,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from kundenportal import tresor
+from beispiel import pdf_muster
+from kundenportal import dateipruefung
 from kundenportal.dateipruefung import Abgelehnt, pruefe_datei, sicherer_name
 from kundenportal.loeschung import loeschlauf
 from kundenportal.models import Auftrag, Benutzer, Checklistenpunkt, Dokument, Freigabe, Kunde, Objekt, Protokoll
@@ -267,11 +269,13 @@ def _office(namen: dict[str, bytes]) -> bytes:
     return puffer.getvalue()
 
 
+BERICHT_PDF = pdf_muster.leer()
+
 TYPES = b'<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>'
 
 
 @pytest.mark.parametrize("name,inhalt,erwartet", [
-    ("a.pdf", b"%PDF-1.7\n1 0 obj<<>>endobj", "pdf"),
+    ("a.pdf", pdf_muster.leer(), "pdf"),
     ("a.png", b"\x89PNG\r\n\x1a\n" + b"0" * 20, "png"),
     ("a.JPG", b"\xff\xd8\xff\xe0" + b"0" * 20, "jpg"),
     ("a.docx", _office({"[Content_Types].xml": TYPES, "word/document.xml": b"<w/>"}), "docx"),
@@ -301,6 +305,58 @@ def test_erlaubte_dateien(name, inhalt, erwartet):
 def test_abgelehnte_dateien(name, inhalt, text):
     with pytest.raises(Abgelehnt, match=text):
         pruefe_datei(name, inhalt)
+
+
+@pytest.mark.parametrize("inhalt", [
+    pdf_muster.mit_javascript(),
+    pdf_muster.mit_javascript(escaped=True),
+    pdf_muster.mit_start(),
+    pdf_muster.mit_start(b"/La#75nch"),
+    pdf_muster.mit_objektstrom(b"<</Type/Action/S/JavaScript/JS(void\\(0\\);)>>"),
+    pdf_muster.mit_objektstrom(b"<</Type/Action/S/Java#53cript/J#53(void\\(0\\);)>>"),
+    pdf_muster.mit_objektstrom(b"<</Type/Action/S/Launch/F(harmlos.txt)>>"),
+], ids=["js", "js-escaped", "launch", "launch-escaped", "js-komprimiert", "js-komprimiert-escaped", "launch-komprimiert"])
+def test_pdf_mit_aktiven_inhalten_abgelehnt(inhalt):
+    with pytest.raises(Abgelehnt, match="ausführbare Inhalte"):
+        pruefe_datei("a.pdf", inhalt)
+
+
+def test_pdf_strukturpruefung_greift_auch_ohne_bytesuche(monkeypatch):
+    # Die Bytesuche ist nur Zusatzschutz; die Strukturprüfung muss escaped Namen selbst erkennen.
+    monkeypatch.setattr(dateipruefung, "_pdf_roh", lambda d: None)
+    for inhalt in (pdf_muster.mit_javascript(escaped=True), pdf_muster.mit_start(b"/La#75nch")):
+        with pytest.raises(Abgelehnt, match="ausführbare Inhalte"):
+            pruefe_datei("a.pdf", inhalt)
+    assert pruefe_datei("a.pdf", pdf_muster.mit_objektstrom(b"<</Type/Action/S/GoTo/D[3 0 R/Fit]>>")).dateityp == "pdf"
+
+
+@pytest.mark.parametrize("inhalt", [
+    pdf_muster.beschaedigt(),
+    b"%PDF-1.7\n1 0 obj<<>>endobj",
+    b"%PDF-1.7 Bericht",
+])
+def test_beschaedigte_pdf_abgelehnt(inhalt):
+    with pytest.raises(Abgelehnt, match="beschädigt"):
+        pruefe_datei("a.pdf", inhalt)
+
+
+def test_pdf_mit_kennwort_abgelehnt_ohne_kennwort_erlaubt():
+    import io
+    from pypdf import PdfReader, PdfWriter
+    def verschluesselt(kennwort):
+        w = PdfWriter(clone_from=PdfReader(io.BytesIO(pdf_muster.leer())))
+        w.encrypt(user_password=kennwort, owner_password="nur-test", algorithm="AES-256")
+        puffer = io.BytesIO(); w.write(puffer)
+        return puffer.getvalue()
+    with pytest.raises(Abgelehnt, match="Kennwort"):
+        pruefe_datei("a.pdf", verschluesselt("nur-test-kennwort"))
+    assert pruefe_datei("a.pdf", verschluesselt("")).dateityp == "pdf"
+
+
+def test_weasyprint_pdf_erlaubt():
+    weasyprint = pytest.importorskip("weasyprint")
+    pdf = weasyprint.HTML(string="<h1>Testbericht</h1><p><a href='https://beispiel.test'>Link</a></p>").write_pdf()
+    assert pruefe_datei("bericht.pdf", pdf).dateityp == "pdf"
 
 
 def test_dateiname_wird_bereinigt():
@@ -372,14 +428,14 @@ def test_ergebnis_bereitstellen_und_abrufen(client, kunde_angemeldet, chef):
     a = kunde_angemeldet
     client.post(reverse("abmelden"))
     anmelden(client, chef.email)
-    client.post(reverse("intern_ergebnis", args=[a.pk]), {"datei": _datei("bericht.pdf", b"%PDF-1.7 Bericht")})
+    client.post(reverse("intern_ergebnis", args=[a.pk]), {"datei": _datei("bericht.pdf", BERICHT_PDF)})
     d = Dokument.objects.get(richtung="ergebnis")
     client.post(reverse("abmelden"))
     anmelden(client, "beirat@beispiel.test")
     seite = client.get(reverse("auftrag", args=[a.pk])).content.decode()
     assert "bericht.pdf" in seite and "neu" in seite
     r = client.get(reverse("dokument", args=[d.pk]))
-    assert client.get(r.url).content == b"%PDF-1.7 Bericht"
+    assert client.get(r.url).content == BERICHT_PDF
     d.refresh_from_db()
     assert d.gelesen is not None
 
