@@ -1,6 +1,7 @@
 # Künstliches Pilotobjekt: 16 Wohnungen und 1 Gewerbeeinheit, Teilung der Gewerbefläche zum 01.07.2026
 # (danach 17 Wohnungen und 1 kleinere Gewerbeeinheit). Alle Namen und Beträge sind erfunden.
 # Aufruf: python -m betriebskosten tests/beispiel/betriebskosten_pilot.toml --ausgabe ausgabe/
+# vz_monatlich: aktuelle monatliche Vorauszahlung in der Darstellung des Mietverhältnisses (Gewerbe mit USt: netto).
 
 [objekt]
 name = "Pilothaus Beispielstraße 7 (fiktiv)"
@@ -114,6 +115,8 @@ abschnitte = [{ von = 2026-07-01, nutzung = "wohnen", flaeche = "80" }]
 id = "MV01"
 einheit = "WE01"
 mieter = "Mietpartei 01 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "109.20", heizkosten = "54.60" }
 personen = 1
 verbrauch = { wasser = "39.5", abwasser = "39.5" }
 vorauszahlungen = { betriebskosten = "1310.40", heizkosten = "655.20" }
@@ -122,6 +125,8 @@ vorauszahlungen = { betriebskosten = "1310.40", heizkosten = "655.20" }
 id = "MV02"
 einheit = "WE02"
 mieter = "Mietpartei 02 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "134.40", heizkosten = "67.20" }
 personen = 2
 verbrauch = { wasser = "79.0", abwasser = "79.0" }
 vorauszahlungen = { betriebskosten = "1612.80", heizkosten = "806.40" }
@@ -130,6 +135,8 @@ vorauszahlungen = { betriebskosten = "1612.80", heizkosten = "806.40" }
 id = "MV03"
 einheit = "WE03"
 mieter = "Mietpartei 03 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "163.80", heizkosten = "81.90" }
 personen = 3
 verbrauch = { wasser = "118.5", abwasser = "118.5" }
 vorauszahlungen = { betriebskosten = "1965.60", heizkosten = "982.80" }
@@ -138,6 +145,8 @@ vorauszahlungen = { betriebskosten = "1965.60", heizkosten = "982.80" }
 id = "MV04"
 einheit = "WE04"
 mieter = "Mietpartei 04 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "121.80", heizkosten = "60.90" }
 personen = 1
 verbrauch = { wasser = "42.5", abwasser = "42.5" }
 vorauszahlungen = { betriebskosten = "1461.60", heizkosten = "730.80" }
@@ -146,6 +155,7 @@ vorauszahlungen = { betriebskosten = "1461.60", heizkosten = "730.80" }
 id = "MV05a"
 einheit = "WE05"
 mieter = "Mieter Auszug (fiktiv)"
+umlageart = "vorauszahlung"
 bis = 2026-04-30
 personen = 2
 verbrauch = { wasser = "18.4", abwasser = "18.4" }
@@ -155,6 +165,8 @@ vorauszahlungen = { betriebskosten = "596.40", heizkosten = "298.20" }
 id = "MV05b"
 einheit = "WE05"
 mieter = "Mieterin Einzug (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "149.10", heizkosten = "74.55" }
 von = 2026-06-01
 personen = 1
 verbrauch = { wasser = "21.0", abwasser = "21.0" }
@@ -164,6 +176,8 @@ vorauszahlungen = { betriebskosten = "1043.70", heizkosten = "521.85" }
 id = "MV06"
 einheit = "WE06"
 mieter = "Mietpartei 06 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "102.90", heizkosten = "51.45" }
 personen = 1
 verbrauch = { wasser = "39.5", abwasser = "39.5" }
 vorauszahlungen = { betriebskosten = "1234.80", heizkosten = "617.40" }
@@ -172,6 +186,8 @@ vorauszahlungen = { betriebskosten = "1234.80", heizkosten = "617.40" }
 id = "MV07"
 einheit = "WE07"
 mieter = "Mietpartei 07 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "174.30", heizkosten = "87.15" }
 personen = 4
 verbrauch = { wasser = "156.0", abwasser = "156.0" }
 vorauszahlungen = { betriebskosten = "2091.60", heizkosten = "1045.80" }
@@ -180,6 +196,8 @@ vorauszahlungen = { betriebskosten = "2091.60", heizkosten = "1045.80" }
 id = "MV08"
 einheit = "WE08"
 mieter = "Mietpartei 08 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "138.60", heizkosten = "69.30" }
 personen = 2
 verbrauch = { wasser = "80.0", abwasser = "80.0" }
 vorauszahlungen = { betriebskosten = "1663.20", heizkosten = "831.60" }
@@ -188,6 +206,8 @@ vorauszahlungen = { betriebskosten = "1663.20", heizkosten = "831.60" }
 id = "MV09"
 einheit = "WE09"
 mieter = "Mietpartei 09 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "115.50", heizkosten = "57.75" }
 personen = 1
 verbrauch = { wasser = "42.5", abwasser = "42.5" }
 vorauszahlungen = { betriebskosten = "1386.00", heizkosten = "693.00" }
@@ -196,6 +216,8 @@ vorauszahlungen = { betriebskosten = "1386.00", heizkosten = "693.00" }
 id = "MV10"
 einheit = "WE10"
 mieter = "Mietpartei 10 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "155.40", heizkosten = "77.70" }
 personen = 3
 verbrauch = { wasser = "115.5", abwasser = "115.5" }
 vorauszahlungen = { betriebskosten = "1864.80", heizkosten = "932.40" }
@@ -204,6 +226,8 @@ vorauszahlungen = { betriebskosten = "1864.80", heizkosten = "932.40" }
 id = "MV11"
 einheit = "WE11"
 mieter = "Mietpartei 11 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "128.10", heizkosten = "64.05" }
 personen = 2
 verbrauch = { wasser = "78.0", abwasser = "78.0" }
 vorauszahlungen = { betriebskosten = "1537.20", heizkosten = "768.60" }
@@ -212,6 +236,8 @@ vorauszahlungen = { betriebskosten = "1537.20", heizkosten = "768.60" }
 id = "MV12"
 einheit = "WE12"
 mieter = "Mietpartei 12 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "144.90", heizkosten = "72.45" }
 personen = 2
 verbrauch = { wasser = "79.0", abwasser = "79.0" }
 vorauszahlungen = { betriebskosten = "1738.80", heizkosten = "869.40" }
@@ -220,6 +246,8 @@ vorauszahlungen = { betriebskosten = "1738.80", heizkosten = "869.40" }
 id = "MV13"
 einheit = "WE13"
 mieter = "Mietpartei 13 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "119.70", heizkosten = "59.85" }
 personen = 1
 verbrauch = { wasser = "41.5", abwasser = "41.5" }
 vorauszahlungen = { betriebskosten = "1436.40", heizkosten = "718.20" }
@@ -228,6 +256,8 @@ vorauszahlungen = { betriebskosten = "1436.40", heizkosten = "718.20" }
 id = "MV14"
 einheit = "WE14"
 mieter = "Mietpartei 14 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "168.00", heizkosten = "84.00" }
 personen = 4
 verbrauch = { wasser = "158.0", abwasser = "158.0" }
 vorauszahlungen = { betriebskosten = "2016.00", heizkosten = "1008.00" }
@@ -236,6 +266,8 @@ vorauszahlungen = { betriebskosten = "2016.00", heizkosten = "1008.00" }
 id = "MV15"
 einheit = "WE15"
 mieter = "Mietpartei 15 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "132.30", heizkosten = "66.15" }
 personen = 2
 verbrauch = { wasser = "77.0", abwasser = "77.0" }
 vorauszahlungen = { betriebskosten = "1587.60", heizkosten = "793.80" }
@@ -244,6 +276,8 @@ vorauszahlungen = { betriebskosten = "1587.60", heizkosten = "793.80" }
 id = "MV16"
 einheit = "WE16"
 mieter = "Mietpartei 16 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "151.20", heizkosten = "75.60" }
 personen = 3
 verbrauch = { wasser = "116.5", abwasser = "116.5" }
 vorauszahlungen = { betriebskosten = "1814.40", heizkosten = "907.20" }
@@ -252,6 +286,8 @@ vorauszahlungen = { betriebskosten = "1814.40", heizkosten = "907.20" }
 id = "MV17"
 einheit = "WE17"
 mieter = "Mietpartei 17 (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "168.00", heizkosten = "84.00" }
 von = 2026-07-01
 personen = 2
 verbrauch = { wasser = "36.0", abwasser = "36.0" }
@@ -261,6 +297,8 @@ vorauszahlungen = { betriebskosten = "1008.00", heizkosten = "504.00" }
 id = "GE1"
 einheit = "GE"
 mieter = "Bäckerei Beispiel GmbH (fiktiv)"
+umlageart = "vorauszahlung"
+vz_monatlich = { betriebskosten = "400.00", heizkosten = "200.00" }
 personen = 0
 verbrauch = { wasser = "95.0", abwasser = "95.0" }
 [mietverhaeltnisse.vorauszahlungen.betriebskosten]
@@ -288,6 +326,7 @@ heizkosten = false
 
 [[kostenarten]]
 id = "wasser"
+kategorie = "kaltwasser"
 bezeichnung = "Wasserversorgung"
 schluessel = "verbrauch"
 pool = "alle"
@@ -376,6 +415,7 @@ heizkosten = false
 
 [[kostenarten]]
 id = "heizung"
+kategorie = "heizung"
 bezeichnung = "Heizkosten"
 schluessel = "messdienst"
 pool = "alle"
@@ -384,6 +424,7 @@ heizkosten = true
 
 [[kostenarten]]
 id = "warmwasser"
+kategorie = "warmwasser"
 bezeichnung = "Warmwasserkosten"
 schluessel = "messdienst"
 pool = "alle"

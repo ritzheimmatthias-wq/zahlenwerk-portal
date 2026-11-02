@@ -50,6 +50,7 @@ def als_dict(erg) -> dict:
     """Strukturierte Ergebnisdaten für Portal und Exporte (ohne die Eingabedaten selbst)."""
     roh = json.loads(kanonisch({
         "regeln_version": erg.regeln_version,
+        "rundungsregeln": erg.rundungsregeln,
         "abrechnungszeitraum": erg.daten.zeitraum,
         "objekt": erg.daten.objekt,
         "mietverhaeltnisse": erg.mietverhaeltnisse,
@@ -58,6 +59,11 @@ def als_dict(erg) -> dict:
         "warnungen": erg.warnungen,
     }))
     return roh
+
+
+def ergebnis_hash(ergebnis: dict) -> str:
+    """Prüfsumme der strukturierten Ergebnisdaten; identische Eingabe und Regeln ergeben denselben Wert."""
+    return hashlib.sha256(kanonisch(ergebnis).encode()).hexdigest()
 
 
 class Ablage:
@@ -83,19 +89,22 @@ class Ablage:
             if letzte["eingabe_hash"] == h and letzte["ergebnis"]["regeln_version"] == erg.regeln_version:
                 return vorhanden[-1], False
         version = (vorhanden[-1] + 1) if vorhanden else 1
+        ergebnis = als_dict(erg)
         stand = {
             "version": version,
             "erstellt": zeit.isoformat(),
             "erstellt_von": person,
             "eingabe_hash": h,
             "eingabe": json.loads(kanonisch(erg.daten)),
-            "ergebnis": als_dict(erg),
+            "ergebnis": ergebnis,
+            "ergebnis_hash": ergebnis_hash(ergebnis),
             "rote_warnungen": len(erg.rot),
             "gelbe_warnungen": len(erg.gelb),
         }
         with open(self.pfad / f"v{version:03d}.json", "x", encoding="utf-8") as f:
             f.write(json.dumps(stand, ensure_ascii=False, indent=1, sort_keys=True))
-        self._audit({"ereignis": "berechnet", "version": version, "eingabe_hash": h, "regeln": erg.regeln_version,
+        self._audit({"ereignis": "berechnet", "version": version, "eingabe_hash": h, "ergebnis_hash": stand["ergebnis_hash"],
+                     "regeln": erg.regeln_version,
                      "rot": len(erg.rot), "gelb": len(erg.gelb), "person": person, "zeit": zeit.isoformat()})
         self._audit({"ereignis": "status", "version": version, "status": "entwurf", "person": person, "zeit": zeit.isoformat()})
         return version, True
@@ -114,6 +123,13 @@ class Ablage:
                 return False
             vorher = hashlib.sha256(kanonisch(e).encode()).hexdigest()
         return True
+
+    def nachrechnen(self, version: int, erg) -> bool:
+        """Prüft, ob eine erneute Berechnung derselben Eingabe exakt den gespeicherten Stand ergibt."""
+        stand = self.lesen(version)
+        return (stand["eingabe_hash"] == eingabe_hash(erg.daten)
+                and stand["ergebnis"]["regeln_version"] == erg.regeln_version
+                and stand["ergebnis_hash"] == ergebnis_hash(als_dict(erg)))
 
     def _audit(self, eintrag: dict) -> None:
         eintraege = self.audit()
