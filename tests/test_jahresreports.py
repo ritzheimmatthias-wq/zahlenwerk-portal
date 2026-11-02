@@ -487,3 +487,162 @@ def test_kein_sprachmodell_im_rechenweg():
         quelle = p.read_text(encoding="utf-8")
         for v in verboten:
             assert f"import {v}" not in quelle and f"from {v}" not in quelle, (p.name, v)
+
+
+# --- Befund W3: Nachrechnen und Reportgrundlage prüfen den gespeicherten Inhalt -------
+
+def _datei_aendern(pfad, aendern):
+    daten = json.loads(pfad.read_text())
+    aendern(daten)
+    pfad.write_text(json.dumps(daten))
+
+
+def test_nachrechnen_erkennt_veraenderten_ergebnisinhalt(tmp_path):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_vz())), zeit=ZEIT, person="pruefer")
+    assert ablage.nachrechnen(1, berechne(aus_dict(fall_vz())))
+    _datei_aendern(tmp_path / "v001.json", lambda s: s["ergebnis"]["mietverhaeltnisse"][0].__setitem__("saldo", "1.00"))
+    assert not ablage.nachrechnen(1, berechne(aus_dict(fall_vz())))  # Hash unverändert, Inhalt nicht
+
+
+def test_veraenderter_stand_ergibt_keinen_report(tmp_path):
+    from betriebskosten.jahresreports import main
+
+    ablage, stand, status = endgueltig(tmp_path, fall_vz())
+    manipuliert = copy.deepcopy(stand)
+    manipuliert["eingabe"]["mietverhaeltnisse"][0]["vz_monatlich"]["betriebskosten"] = "10000.00"
+    with pytest.raises(Reportfehler, match="nicht unverfälscht"):
+        analysiere(manipuliert, status, STANDARD)
+    with pytest.raises(Reportfehler, match="nicht unverfälscht"):
+        bericht([(manipuliert, status)], STANDARD)
+    # Über die Ablage: Datei verändert → CLI erstellt keinen Report
+    _datei_aendern(ablage.pfad / "v001.json",
+                   lambda s: s["eingabe"]["mietverhaeltnisse"][0]["vz_monatlich"].__setitem__("betriebskosten", "10000.00"))
+    assert main(["vorauszahlung", "--ablage", str(ablage.pfad), "--ausgabe", str(tmp_path / "aus")]) == 1
+    assert not (ablage.pfad / "reports" / "vorauszahlung_r001.json").exists()
+
+
+def test_beschaedigte_auditkette_verhindert_report(tmp_path):
+    from betriebskosten.jahresreports import main
+
+    ablage, _, _ = endgueltig(tmp_path, fall_vz())
+    zeilen = ablage.audit_pfad.read_text().splitlines()
+    zeilen[1] = zeilen[1].replace('"person":"pruefer"', '"person":"jemand"')
+    ablage.audit_pfad.write_text("\n".join(zeilen) + "\n")
+    assert main(["vorauszahlung", "--ablage", str(ablage.pfad), "--ausgabe", str(tmp_path / "aus")]) == 1
+    assert not (tmp_path / "aus").exists() or not list((tmp_path / "aus").glob("*.pdf"))
+
+
+# --- Befund W2 (Dateiablage): freigegebene Reports vor Ausgabe erneut prüfen ----------
+
+def _freigegebener_report(tmp_path):
+    ablage, stand, status = endgueltig(tmp_path, fall_vz())
+    ra = ReportAblage(ablage)
+    ra.speichern(analysiere(stand, status, STANDARD), zeit=ZEIT, person="pruefer")
+    for s in ("fachlich_geprueft", "freigegeben"):
+        ra.status_setzen("vorauszahlung", 1, s, person="pruefer", zeit=ZEIT)
+    assert ra.download_erlaubt("vorauszahlung", 1)
+    return ablage, ra
+
+
+def test_veraenderter_report_wird_nicht_ausgegeben(tmp_path):
+    _, ra = _freigegebener_report(tmp_path)
+    pfad = ra.pfad / "vorauszahlung_r001.json"
+    _datei_aendern(pfad, lambda s: s["inhalt"]["mietverhaeltnisse"][0].__setitem__("mieter", "MANIPULIERT"))
+    assert not ra.download_erlaubt("vorauszahlung", 1)
+    with pytest.raises(Freigabefehler, match="nicht unverfälscht"):
+        ra.freigegeben("vorauszahlung", 1)
+
+
+def test_report_mit_neu_berechneter_pruefsumme_faellt_am_auditlog_auf(tmp_path):
+    from betriebskosten.reportablage import inhalt_hash
+
+    _, ra = _freigegebener_report(tmp_path)
+
+    def aendern(s):
+        s["inhalt"]["mietverhaeltnisse"][0]["mieter"] = "MANIPULIERT"
+        s["inhalt_hash"] = inhalt_hash(s["inhalt"])
+    _datei_aendern(ra.pfad / "vorauszahlung_r001.json", aendern)
+    with pytest.raises(Freigabefehler, match="Audit-Log"):
+        ra.freigegeben("vorauszahlung", 1)
+
+
+def test_beschaedigte_auditkette_sperrt_reportfreigabe(tmp_path):
+    ablage, stand, status = endgueltig(tmp_path, fall_vz())
+    ra = ReportAblage(ablage)
+    ra.speichern(analysiere(stand, status, STANDARD), zeit=ZEIT, person="pruefer")
+    zeilen = ablage.audit_pfad.read_text().splitlines()
+    zeilen[0] = zeilen[0].replace('"person":"pruefer"', '"person":"jemand"')
+    ablage.audit_pfad.write_text("\n".join(zeilen) + "\n")
+    with pytest.raises(Freigabefehler, match="Audit-Log ist beschädigt"):
+        ra.status_setzen("vorauszahlung", 1, "fachlich_geprueft", person="pruefer", zeit=ZEIT)
+
+
+# --- Befund W5: verkürztes Abrechnungsjahr --------------------------------------------
+
+def fall_kurzjahr():
+    d = fall_vz()
+    d["abrechnung"] = {"von": date(2025, 7, 1), "bis": date(2025, 12, 31)}
+    d["mietverhaeltnisse"] = [m for m in d["mietverhaeltnisse"] if m["id"] != "A"]
+    md = d["messdienst"][0]
+    md["werte"] = [w for w in md["werte"] if w.get("mietverhaeltnis") != "A"]
+    md["gesamt_brutto"] = "1880.00"
+    return d
+
+
+def test_verkuerztes_abrechnungsjahr_ohne_empfehlung(tmp_path):
+    from betriebskosten.vorauszahlung import volles_jahr
+
+    r = report_vz(tmp_path, fall_kurzjahr())
+    for m in r["mietverhaeltnisse"]:
+        assert m["nutzungstage"] == 184
+        for a in m["arten"]:
+            assert a["empfehlung"] == "keine" and a["vorschlag_monatlich"] is None, (m["id"], a["art"])
+            assert "Verkürztes Abrechnungsjahr (184 Tage)" in a["begruendung"]
+    # Kosten bleiben unverändert aus der Abrechnung, keine Hochrechnung als belastbare Empfehlung
+    for m in r["mietverhaeltnisse"]:
+        assert m["summe"]["abrechnungsspitze"] == m["abgleich_saldo"]
+    assert not volles_jahr({"von": "2025-07-01", "bis": "2025-12-31"})
+
+
+def test_volles_jahr_schaltjahr_und_abweichendes_wirtschaftsjahr():
+    from betriebskosten.vorauszahlung import volles_jahr
+
+    assert volles_jahr({"von": "2025-01-01", "bis": "2025-12-31"})
+    assert volles_jahr({"von": "2024-01-01", "bis": "2024-12-31"})  # 366 Tage
+    assert volles_jahr({"von": "2024-07-01", "bis": "2025-06-30"})
+    assert volles_jahr({"von": "2024-02-29", "bis": "2025-02-28"})
+    assert not volles_jahr({"von": "2025-01-01", "bis": "2025-12-30"})
+    assert not volles_jahr({"von": "2024-01-01", "bis": "2025-01-01"})
+
+
+def test_schaltjahr_mit_mieterwechsel_bleibt_empfehlungsfaehig(tmp_path):
+    d = fall_vz()
+    d["abrechnung"] = {"von": date(2024, 1, 1), "bis": date(2024, 12, 31)}
+    for m in d["mietverhaeltnisse"]:
+        if m["id"] == "A":
+            m["bis"] = date(2024, 6, 30)
+        if m["id"] == "E":
+            m["von"] = date(2024, 7, 1)
+    r = report_vz(tmp_path, d)
+    bk = art(r, "N", "betriebskosten")
+    # volles Jahr mit 366 Tagen: 1.500 × 366 / (366 × 12) = 125,00
+    assert (bk["monatskosten"], bk["empfehlung"]) == ("125.00", "erhoehen")
+    e = art(r, "E", "betriebskosten")
+    assert e["empfehlung"] != "keine" and "Verkürztes" not in e["begruendung"]
+
+
+# --- Byte-Wiederholung auch für den Kostenverlaufsbericht -----------------------------
+
+def test_kostenverlauf_pdf_byte_identisch(tmp_path):
+    from betriebskosten.reportausgabe import report_pdf
+
+    pdfs = []
+    for lauf in ("a", "b"):
+        st = staende(tmp_path / lauf, [2023, 2024, 2025])
+        ra = ReportAblage(Ablage(tmp_path / lauf / "ablage2025"))
+        ra.speichern(bericht(st, STANDARD), zeit=ZEIT, person="pruefer")
+        snap = ra.pruefen("kostenverlauf", 1)
+        pdfs.append((snap["inhalt_hash"], report_pdf(snap, "freigegeben")))
+    assert pdfs[0][0] == pdfs[1][0]
+    assert pdfs[0][1] == pdfs[1][1]
