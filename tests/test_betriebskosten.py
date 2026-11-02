@@ -448,3 +448,73 @@ def test_pilotobjekt_rechnet_vollstaendig(tmp_path):
     assert {m.darstellung for m in erg.mietverhaeltnisse if m.id != "GE1"} == {"wohnen"}
     assert main([str(pfad), "--ausgabe", str(tmp_path / "aus"), "--ablage", str(tmp_path / "ablage"), "--person", "test"]) == 0
     assert len(list((tmp_path / "aus").glob("abrechnung_*.pdf"))) == 19
+
+
+# --- Befund W3: beschädigte Stände und Audit-Kette sperren Freigaben -----------------
+
+def _endgueltig_bis(ablage, ziel):
+    for status in ("fachlich_geprueft", "eigentuemer_freigegeben", "endgueltig"):
+        ablage.status_setzen(1, status, person="pruefer", zeit=ZEIT)
+        if status == ziel:
+            return
+
+
+def test_veraendertes_ergebnis_bei_unveraendertem_hash_sperrt(tmp_path):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    pfad = tmp_path / "v001.json"
+    stand = json.loads(pfad.read_text())
+    stand["ergebnis"]["mietverhaeltnisse"][0]["saldo"] = "999.99"
+    pfad.write_text(json.dumps(stand))
+    with pytest.raises(Freigabefehler, match="Ergebnis-Prüfsumme"):
+        ablage.status_setzen(1, "fachlich_geprueft", person="pruefer", zeit=ZEIT)
+    with pytest.raises(Freigabefehler, match="nicht unverfälscht"):
+        ablage.pruefen(1)
+
+
+def test_veraenderte_eingabe_und_warnungszaehler_sperren(tmp_path):
+    for aendern, text in [
+        (lambda s: s["eingabe"]["positionen"][0].__setitem__("brutto", "1.00"), "Eingabe-Prüfsumme"),
+        (lambda s: s.__setitem__("rote_warnungen", 0) or s.__setitem__("gelbe_warnungen", 99), "Warnungszähler"),
+        (lambda s: s.__setitem__("eingabe_hash", "0" * 64), "Eingabe-Prüfsumme"),
+    ]:
+        ablage = Ablage(tmp_path / text / str(id(aendern)))
+        ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+        pfad = ablage.pfad / "v001.json"
+        stand = json.loads(pfad.read_text())
+        aendern(stand)
+        pfad.write_text(json.dumps(stand))
+        with pytest.raises(Freigabefehler, match=text):
+            ablage.status_setzen(1, "fachlich_geprueft", person="pruefer", zeit=ZEIT)
+
+
+def test_beschaedigter_altstand_wird_bei_identischer_eingabe_nicht_zurueckgegeben(tmp_path):
+    ablage = Ablage(tmp_path)
+    erg = berechne(aus_dict(fall_wohnen()))
+    ablage.speichern(erg, zeit=ZEIT, person="pruefer")
+    pfad = tmp_path / "v001.json"
+    stand = json.loads(pfad.read_text())
+    stand["ergebnis"]["mietverhaeltnisse"][0]["saldo"] = "0.00"
+    pfad.write_text(json.dumps(stand))
+    with pytest.raises(Freigabefehler, match="nicht unverfälscht"):
+        ablage.speichern(erg, zeit=ZEIT, person="pruefer")
+
+
+def test_beschaedigte_auditkette_sperrt_weitere_freigaben(tmp_path):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    _endgueltig_bis(ablage, "fachlich_geprueft")
+    zeilen = ablage.audit_pfad.read_text().splitlines()
+    zeilen[0] = zeilen[0].replace('"person":"pruefer"', '"person":"jemand"')
+    ablage.audit_pfad.write_text("\n".join(zeilen) + "\n")
+    assert not ablage.audit_unverfaelscht()
+    with pytest.raises(Freigabefehler, match="Audit-Log ist beschädigt"):
+        ablage.status_setzen(1, "eigentuemer_freigegeben", person="pruefer", zeit=ZEIT)
+    assert ablage.status(1) == "fachlich_geprueft"
+
+
+def test_gueltiger_ablauf_bleibt_moeglich(tmp_path):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    _endgueltig_bis(ablage, "endgueltig")
+    assert ablage.status(1) == "endgueltig" and ablage.pruefen(1)["version"] == 1
