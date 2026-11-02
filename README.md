@@ -22,3 +22,19 @@ python -m auswertung --stammdaten tests/beispiel/stammdaten.toml --pdf bericht.p
 ```
 
 Alle Beispieldaten sind erfunden. Arbeitsregeln: [AGENTS.md](AGENTS.md).
+
+## Betriebskostenabrechnung (Generator, Entwurf)
+
+`betriebskosten/` berechnet aus geprüften Stammdaten, Belegen, Verteilerschlüsseln,
+Vorauszahlungen und Messdienstwerten je Mietverhältnis eine Abrechnung:
+Wohnraum mit Bruttodarstellung, Gewerbe je nach bestätigter Konfiguration brutto
+oder netto + Umsatzsteuer + brutto. Ungeklärte Steuerfälle sperren die Abrechnung.
+Jeder Lauf liefert Ergebnisdaten (JSON), einen internen Kontrollbericht, PDF-Entwürfe
+und optional einen unveränderlichen, versionierten Berechnungsstand mit Audit-Log.
+Nichts wird versendet.
+
+```
+python -m betriebskosten tests/beispiel/betriebskosten_pilot.toml --ausgabe ausgabe/ --ablage ablage/ --person "Name"
+```
+
+Das Pilotobjekt in `tests/beispiel/betriebskosten_pilot.toml` ist vollständig erfunden.

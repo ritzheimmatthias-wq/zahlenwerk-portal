@@ -1,0 +1,582 @@
+# Künstliches Pilotobjekt: 16 Wohnungen und 1 Gewerbeeinheit, Teilung der Gewerbefläche zum 01.07.2026
+# (danach 17 Wohnungen und 1 kleinere Gewerbeeinheit). Alle Namen und Beträge sind erfunden.
+# Aufruf: python -m betriebskosten tests/beispiel/betriebskosten_pilot.toml --ausgabe ausgabe/
+
+[objekt]
+name = "Pilothaus Beispielstraße 7 (fiktiv)"
+anschrift = "Beispielstraße 7, 12345 Musterstadt"
+vermieter = "Erika Eigentümerin (fiktiv)"
+vermieter_anschrift = "Musterallee 1, 12345 Musterstadt"
+
+[abrechnung]
+von = 2026-01-01
+bis = 2026-12-31
+vorjahr_schwelle = "0.25"
+
+[abrechnung.vorjahr]
+grundsteuer = "3900.00"
+versicherung = "5200.00"
+
+[[einheiten]]
+id = "WE01"
+bezeichnung = "Wohnung 01"
+abschnitte = [{ nutzung = "wohnen", flaeche = "52" }]
+
+[[einheiten]]
+id = "WE02"
+bezeichnung = "Wohnung 02"
+abschnitte = [{ nutzung = "wohnen", flaeche = "64" }]
+
+[[einheiten]]
+id = "WE03"
+bezeichnung = "Wohnung 03"
+abschnitte = [{ nutzung = "wohnen", flaeche = "78" }]
+
+[[einheiten]]
+id = "WE04"
+bezeichnung = "Wohnung 04"
+abschnitte = [{ nutzung = "wohnen", flaeche = "58" }]
+
+[[einheiten]]
+id = "WE05"
+bezeichnung = "Wohnung 05"
+abschnitte = [{ nutzung = "wohnen", flaeche = "71" }]
+
+[[einheiten]]
+id = "WE06"
+bezeichnung = "Wohnung 06"
+abschnitte = [{ nutzung = "wohnen", flaeche = "49" }]
+
+[[einheiten]]
+id = "WE07"
+bezeichnung = "Wohnung 07"
+abschnitte = [{ nutzung = "wohnen", flaeche = "83" }]
+
+[[einheiten]]
+id = "WE08"
+bezeichnung = "Wohnung 08"
+abschnitte = [{ nutzung = "wohnen", flaeche = "66" }]
+
+[[einheiten]]
+id = "WE09"
+bezeichnung = "Wohnung 09"
+abschnitte = [{ nutzung = "wohnen", flaeche = "55" }]
+
+[[einheiten]]
+id = "WE10"
+bezeichnung = "Wohnung 10"
+abschnitte = [{ nutzung = "wohnen", flaeche = "74" }]
+
+[[einheiten]]
+id = "WE11"
+bezeichnung = "Wohnung 11"
+abschnitte = [{ nutzung = "wohnen", flaeche = "61" }]
+
+[[einheiten]]
+id = "WE12"
+bezeichnung = "Wohnung 12"
+abschnitte = [{ nutzung = "wohnen", flaeche = "69" }]
+
+[[einheiten]]
+id = "WE13"
+bezeichnung = "Wohnung 13"
+abschnitte = [{ nutzung = "wohnen", flaeche = "57" }]
+
+[[einheiten]]
+id = "WE14"
+bezeichnung = "Wohnung 14"
+abschnitte = [{ nutzung = "wohnen", flaeche = "80" }]
+
+[[einheiten]]
+id = "WE15"
+bezeichnung = "Wohnung 15"
+abschnitte = [{ nutzung = "wohnen", flaeche = "63" }]
+
+[[einheiten]]
+id = "WE16"
+bezeichnung = "Wohnung 16"
+abschnitte = [{ nutzung = "wohnen", flaeche = "72" }]
+
+[[einheiten]]
+id = "GE"
+bezeichnung = "Gewerbeeinheit Erdgeschoss"
+abschnitte = [
+  { bis = 2026-06-30, nutzung = "gewerbe", flaeche = "220" },
+  { von = 2026-07-01, nutzung = "gewerbe", flaeche = "140" },
+]
+
+[[einheiten]]
+id = "WE17"
+bezeichnung = "Wohnung 17 (aus Gewerbefläche, ab 01.07.2026)"
+abschnitte = [{ von = 2026-07-01, nutzung = "wohnen", flaeche = "80" }]
+
+[[mietverhaeltnisse]]
+id = "MV01"
+einheit = "WE01"
+mieter = "Mietpartei 01 (fiktiv)"
+personen = 1
+verbrauch = { wasser = "39.5", abwasser = "39.5" }
+vorauszahlungen = { betriebskosten = "1310.40", heizkosten = "655.20" }
+
+[[mietverhaeltnisse]]
+id = "MV02"
+einheit = "WE02"
+mieter = "Mietpartei 02 (fiktiv)"
+personen = 2
+verbrauch = { wasser = "79.0", abwasser = "79.0" }
+vorauszahlungen = { betriebskosten = "1612.80", heizkosten = "806.40" }
+
+[[mietverhaeltnisse]]
+id = "MV03"
+einheit = "WE03"
+mieter = "Mietpartei 03 (fiktiv)"
+personen = 3
+verbrauch = { wasser = "118.5", abwasser = "118.5" }
+vorauszahlungen = { betriebskosten = "1965.60", heizkosten = "982.80" }
+
+[[mietverhaeltnisse]]
+id = "MV04"
+einheit = "WE04"
+mieter = "Mietpartei 04 (fiktiv)"
+personen = 1
+verbrauch = { wasser = "42.5", abwasser = "42.5" }
+vorauszahlungen = { betriebskosten = "1461.60", heizkosten = "730.80" }
+
+[[mietverhaeltnisse]]
+id = "MV05a"
+einheit = "WE05"
+mieter = "Mieter Auszug (fiktiv)"
+bis = 2026-04-30
+personen = 2
+verbrauch = { wasser = "18.4", abwasser = "18.4" }
+vorauszahlungen = { betriebskosten = "596.40", heizkosten = "298.20" }
+
+[[mietverhaeltnisse]]
+id = "MV05b"
+einheit = "WE05"
+mieter = "Mieterin Einzug (fiktiv)"
+von = 2026-06-01
+personen = 1
+verbrauch = { wasser = "21.0", abwasser = "21.0" }
+vorauszahlungen = { betriebskosten = "1043.70", heizkosten = "521.85" }
+
+[[mietverhaeltnisse]]
+id = "MV06"
+einheit = "WE06"
+mieter = "Mietpartei 06 (fiktiv)"
+personen = 1
+verbrauch = { wasser = "39.5", abwasser = "39.5" }
+vorauszahlungen = { betriebskosten = "1234.80", heizkosten = "617.40" }
+
+[[mietverhaeltnisse]]
+id = "MV07"
+einheit = "WE07"
+mieter = "Mietpartei 07 (fiktiv)"
+personen = 4
+verbrauch = { wasser = "156.0", abwasser = "156.0" }
+vorauszahlungen = { betriebskosten = "2091.60", heizkosten = "1045.80" }
+
+[[mietverhaeltnisse]]
+id = "MV08"
+einheit = "WE08"
+mieter = "Mietpartei 08 (fiktiv)"
+personen = 2
+verbrauch = { wasser = "80.0", abwasser = "80.0" }
+vorauszahlungen = { betriebskosten = "1663.20", heizkosten = "831.60" }
+
+[[mietverhaeltnisse]]
+id = "MV09"
+einheit = "WE09"
+mieter = "Mietpartei 09 (fiktiv)"
+personen = 1
+verbrauch = { wasser = "42.5", abwasser = "42.5" }
+vorauszahlungen = { betriebskosten = "1386.00", heizkosten = "693.00" }
+
+[[mietverhaeltnisse]]
+id = "MV10"
+einheit = "WE10"
+mieter = "Mietpartei 10 (fiktiv)"
+personen = 3
+verbrauch = { wasser = "115.5", abwasser = "115.5" }
+vorauszahlungen = { betriebskosten = "1864.80", heizkosten = "932.40" }
+
+[[mietverhaeltnisse]]
+id = "MV11"
+einheit = "WE11"
+mieter = "Mietpartei 11 (fiktiv)"
+personen = 2
+verbrauch = { wasser = "78.0", abwasser = "78.0" }
+vorauszahlungen = { betriebskosten = "1537.20", heizkosten = "768.60" }
+
+[[mietverhaeltnisse]]
+id = "MV12"
+einheit = "WE12"
+mieter = "Mietpartei 12 (fiktiv)"
+personen = 2
+verbrauch = { wasser = "79.0", abwasser = "79.0" }
+vorauszahlungen = { betriebskosten = "1738.80", heizkosten = "869.40" }
+
+[[mietverhaeltnisse]]
+id = "MV13"
+einheit = "WE13"
+mieter = "Mietpartei 13 (fiktiv)"
+personen = 1
+verbrauch = { wasser = "41.5", abwasser = "41.5" }
+vorauszahlungen = { betriebskosten = "1436.40", heizkosten = "718.20" }
+
+[[mietverhaeltnisse]]
+id = "MV14"
+einheit = "WE14"
+mieter = "Mietpartei 14 (fiktiv)"
+personen = 4
+verbrauch = { wasser = "158.0", abwasser = "158.0" }
+vorauszahlungen = { betriebskosten = "2016.00", heizkosten = "1008.00" }
+
+[[mietverhaeltnisse]]
+id = "MV15"
+einheit = "WE15"
+mieter = "Mietpartei 15 (fiktiv)"
+personen = 2
+verbrauch = { wasser = "77.0", abwasser = "77.0" }
+vorauszahlungen = { betriebskosten = "1587.60", heizkosten = "793.80" }
+
+[[mietverhaeltnisse]]
+id = "MV16"
+einheit = "WE16"
+mieter = "Mietpartei 16 (fiktiv)"
+personen = 3
+verbrauch = { wasser = "116.5", abwasser = "116.5" }
+vorauszahlungen = { betriebskosten = "1814.40", heizkosten = "907.20" }
+
+[[mietverhaeltnisse]]
+id = "MV17"
+einheit = "WE17"
+mieter = "Mietpartei 17 (fiktiv)"
+von = 2026-07-01
+personen = 2
+verbrauch = { wasser = "36.0", abwasser = "36.0" }
+vorauszahlungen = { betriebskosten = "1008.00", heizkosten = "504.00" }
+
+[[mietverhaeltnisse]]
+id = "GE1"
+einheit = "GE"
+mieter = "Bäckerei Beispiel GmbH (fiktiv)"
+personen = 0
+verbrauch = { wasser = "95.0", abwasser = "95.0" }
+[mietverhaeltnisse.vorauszahlungen.betriebskosten]
+brutto = "5712.00"
+netto = "4800.00"
+ust = "912.00"
+[mietverhaeltnisse.vorauszahlungen.heizkosten]
+brutto = "2856.00"
+netto = "2400.00"
+ust = "456.00"
+[mietverhaeltnisse.steuer]
+behandlung = "steuerpflichtig"
+satz = "0.19"
+kostenbasis = "netto"
+bestaetigt_von = "Beispiel-Steuerberatung (fiktiv)"
+bestaetigt_am = 2026-01-15
+
+[[kostenarten]]
+id = "grundsteuer"
+bezeichnung = "Grundsteuer"
+schluessel = "flaeche"
+pool = "alle"
+umlagefaehig_bestaetigt = true
+heizkosten = false
+
+[[kostenarten]]
+id = "wasser"
+bezeichnung = "Wasserversorgung"
+schluessel = "verbrauch"
+pool = "alle"
+umlagefaehig_bestaetigt = true
+heizkosten = false
+
+[[kostenarten]]
+id = "abwasser"
+bezeichnung = "Entwässerung"
+schluessel = "verbrauch"
+pool = "alle"
+umlagefaehig_bestaetigt = true
+heizkosten = false
+
+[[kostenarten]]
+id = "muell"
+bezeichnung = "Müllbeseitigung Wohnen"
+schluessel = "personen"
+pool = "wohnen"
+umlagefaehig_bestaetigt = true
+heizkosten = false
+
+[[kostenarten]]
+id = "gewerbemuell"
+bezeichnung = "Müllbeseitigung Gewerbe"
+schluessel = "direkt"
+pool = "gewerbe"
+umlagefaehig_bestaetigt = true
+heizkosten = false
+
+[[kostenarten]]
+id = "strassenreinigung"
+bezeichnung = "Straßenreinigung"
+schluessel = "flaeche"
+pool = "alle"
+umlagefaehig_bestaetigt = true
+heizkosten = false
+
+[[kostenarten]]
+id = "gartenpflege"
+bezeichnung = "Gartenpflege"
+schluessel = "flaeche"
+pool = "alle"
+umlagefaehig_bestaetigt = true
+heizkosten = false
+
+[[kostenarten]]
+id = "hausstrom"
+bezeichnung = "Allgemeinstrom"
+schluessel = "einheiten"
+pool = "alle"
+umlagefaehig_bestaetigt = true
+heizkosten = false
+
+[[kostenarten]]
+id = "schornsteinfeger"
+bezeichnung = "Schornsteinreinigung"
+schluessel = "einheiten"
+pool = "alle"
+umlagefaehig_bestaetigt = true
+heizkosten = false
+
+[[kostenarten]]
+id = "versicherung"
+bezeichnung = "Sach- und Haftpflichtversicherung"
+schluessel = "flaeche"
+pool = "alle"
+umlagefaehig_bestaetigt = true
+heizkosten = false
+
+[[kostenarten]]
+id = "hausmeister"
+bezeichnung = "Hauswart"
+schluessel = "flaeche"
+pool = "alle"
+umlagefaehig_bestaetigt = true
+heizkosten = false
+
+[[kostenarten]]
+id = "treppenhaus"
+bezeichnung = "Treppenhausreinigung"
+schluessel = "einheiten"
+pool = "wohnen"
+umlagefaehig_bestaetigt = true
+heizkosten = false
+
+[[kostenarten]]
+id = "heizung"
+bezeichnung = "Heizkosten"
+schluessel = "messdienst"
+pool = "alle"
+umlagefaehig_bestaetigt = true
+heizkosten = true
+
+[[kostenarten]]
+id = "warmwasser"
+bezeichnung = "Warmwasserkosten"
+schluessel = "messdienst"
+pool = "alle"
+umlagefaehig_bestaetigt = true
+heizkosten = true
+
+[[belege]]
+id = "BEL-001"
+lieferant = "Stadtkasse Musterstadt"
+rechnungsnummer = "GS-2026"
+leistung_von = 2026-01-01
+leistung_bis = 2026-12-31
+[[belege.positionen]]
+kostenart = "grundsteuer"
+brutto = "4120.00"
+netto = "4120.00"
+ust = "0.00"
+
+[[belege]]
+id = "BEL-002"
+lieferant = "Stadtwerke Musterstadt"
+rechnungsnummer = "W-2026-117"
+leistung_von = 2026-01-01
+leistung_bis = 2026-12-31
+[[belege.positionen]]
+kostenart = "wasser"
+brutto = "3480.40"
+netto = "3252.71"
+ust = "227.69"
+
+[[belege]]
+id = "BEL-003"
+lieferant = "Stadtwerke Musterstadt"
+rechnungsnummer = "AW-2026-117"
+leistung_von = 2026-01-01
+leistung_bis = 2026-12-31
+[[belege.positionen]]
+kostenart = "abwasser"
+brutto = "4310.00"
+netto = "4310.00"
+ust = "0.00"
+
+[[belege]]
+id = "BEL-004"
+lieferant = "Abfallbetrieb Musterstadt"
+rechnungsnummer = "AB-55-2026"
+leistung_von = 2026-01-01
+leistung_bis = 2026-12-31
+[[belege.positionen]]
+kostenart = "muell"
+brutto = "2890.00"
+netto = "2890.00"
+ust = "0.00"
+
+[[belege]]
+id = "BEL-005"
+lieferant = "Stadtkasse Musterstadt"
+rechnungsnummer = "SR-2026"
+leistung_von = 2026-01-01
+leistung_bis = 2026-12-31
+[[belege.positionen]]
+kostenart = "strassenreinigung"
+brutto = "412.80"
+netto = "412.80"
+ust = "0.00"
+
+[[belege]]
+id = "BEL-006"
+lieferant = "Grün & Co. (fiktiv)"
+rechnungsnummer = "G-2026-03"
+leistung_von = 2026-01-01
+leistung_bis = 2026-12-31
+[[belege.positionen]]
+kostenart = "gartenpflege"
+brutto = "1428.00"
+netto = "1200.00"
+ust = "228.00"
+
+[[belege]]
+id = "BEL-007"
+lieferant = "Strom Beispiel AG"
+rechnungsnummer = "HS-2026"
+leistung_von = 2026-01-01
+leistung_bis = 2026-12-31
+[[belege.positionen]]
+kostenart = "hausstrom"
+brutto = "1190.00"
+netto = "1000.00"
+ust = "190.00"
+
+[[belege]]
+id = "BEL-008"
+lieferant = "Bezirksschornsteinfeger (fiktiv)"
+rechnungsnummer = "SF-881"
+leistung_von = 2026-01-01
+leistung_bis = 2026-12-31
+[[belege.positionen]]
+kostenart = "schornsteinfeger"
+brutto = "321.30"
+netto = "270.00"
+ust = "51.30"
+
+[[belege]]
+id = "BEL-009"
+lieferant = "Versicherung Beispiel (fiktiv)"
+rechnungsnummer = "V-2026"
+leistung_von = 2026-01-01
+leistung_bis = 2026-12-31
+[[belege.positionen]]
+kostenart = "versicherung"
+brutto = "5480.00"
+netto = "5480.00"
+ust = "0.00"
+
+[[belege]]
+id = "BEL-010"
+lieferant = "Hausdienst Muster (fiktiv)"
+rechnungsnummer = "HD-2026-12"
+leistung_von = 2026-01-01
+leistung_bis = 2026-12-31
+[[belege.positionen]]
+kostenart = "hausmeister"
+brutto = "7140.00"
+netto = "6000.00"
+ust = "1140.00"
+
+[[belege]]
+id = "BEL-011"
+lieferant = "Reinigung Blitz (fiktiv)"
+rechnungsnummer = "R-2026"
+leistung_von = 2026-01-01
+leistung_bis = 2026-12-31
+[[belege.positionen]]
+kostenart = "treppenhaus"
+brutto = "3570.00"
+netto = "3000.00"
+ust = "570.00"
+
+[[belege]]
+id = "BEL-012"
+lieferant = "Gewerbeentsorgung (fiktiv)"
+rechnungsnummer = "GE-2026-4"
+[[belege.positionen]]
+kostenart = "gewerbemuell"
+brutto = "714.00"
+netto = "600.00"
+ust = "114.00"
+satz = "0.19"
+einheit = "GE"
+
+[[messdienst]]
+id = "MD-2026"
+anbieter = "Messdienst Beispiel (fiktiv)"
+gesamt_brutto = "18571.20"
+werte = [
+  { einheit = "WE01", kostenart = "heizung", brutto = "582.40", netto = "489.41" },
+  { einheit = "WE01", kostenart = "warmwasser", brutto = "176.80", netto = "148.57" },
+  { einheit = "WE02", kostenart = "heizung", brutto = "716.80", netto = "602.35" },
+  { einheit = "WE02", kostenart = "warmwasser", brutto = "217.60", netto = "182.86" },
+  { einheit = "WE03", kostenart = "heizung", brutto = "873.60", netto = "734.12" },
+  { einheit = "WE03", kostenart = "warmwasser", brutto = "265.20", netto = "222.86" },
+  { einheit = "WE04", kostenart = "heizung", brutto = "649.60", netto = "545.88" },
+  { einheit = "WE04", kostenart = "warmwasser", brutto = "197.20", netto = "165.71" },
+  { einheit = "WE05", mietverhaeltnis = "MV05a", kostenart = "heizung", brutto = "318.08", netto = "267.29" },
+  { einheit = "WE05", mietverhaeltnis = "MV05b", kostenart = "heizung", brutto = "437.36", netto = "367.53" },
+  { einheit = "WE05", mietverhaeltnis = "leerstand", kostenart = "heizung", brutto = "39.76", netto = "33.41" },
+  { einheit = "WE05", mietverhaeltnis = "MV05a", kostenart = "warmwasser", brutto = "96.56", netto = "81.14" },
+  { einheit = "WE05", mietverhaeltnis = "MV05b", kostenart = "warmwasser", brutto = "132.77", netto = "111.57" },
+  { einheit = "WE05", mietverhaeltnis = "leerstand", kostenart = "warmwasser", brutto = "12.07", netto = "10.14" },
+  { einheit = "WE06", kostenart = "heizung", brutto = "548.80", netto = "461.18" },
+  { einheit = "WE06", kostenart = "warmwasser", brutto = "166.60", netto = "140.00" },
+  { einheit = "WE07", kostenart = "heizung", brutto = "929.60", netto = "781.18" },
+  { einheit = "WE07", kostenart = "warmwasser", brutto = "282.20", netto = "237.14" },
+  { einheit = "WE08", kostenart = "heizung", brutto = "739.20", netto = "621.18" },
+  { einheit = "WE08", kostenart = "warmwasser", brutto = "224.40", netto = "188.57" },
+  { einheit = "WE09", kostenart = "heizung", brutto = "616.00", netto = "517.65" },
+  { einheit = "WE09", kostenart = "warmwasser", brutto = "187.00", netto = "157.14" },
+  { einheit = "WE10", kostenart = "heizung", brutto = "828.80", netto = "696.47" },
+  { einheit = "WE10", kostenart = "warmwasser", brutto = "251.60", netto = "211.43" },
+  { einheit = "WE11", kostenart = "heizung", brutto = "683.20", netto = "574.12" },
+  { einheit = "WE11", kostenart = "warmwasser", brutto = "207.40", netto = "174.29" },
+  { einheit = "WE12", kostenart = "heizung", brutto = "772.80", netto = "649.41" },
+  { einheit = "WE12", kostenart = "warmwasser", brutto = "234.60", netto = "197.14" },
+  { einheit = "WE13", kostenart = "heizung", brutto = "638.40", netto = "536.47" },
+  { einheit = "WE13", kostenart = "warmwasser", brutto = "193.80", netto = "162.86" },
+  { einheit = "WE14", kostenart = "heizung", brutto = "896.00", netto = "752.94" },
+  { einheit = "WE14", kostenart = "warmwasser", brutto = "272.00", netto = "228.57" },
+  { einheit = "WE15", kostenart = "heizung", brutto = "705.60", netto = "592.94" },
+  { einheit = "WE15", kostenart = "warmwasser", brutto = "214.20", netto = "180.00" },
+  { einheit = "WE16", kostenart = "heizung", brutto = "806.40", netto = "677.65" },
+  { einheit = "WE16", kostenart = "warmwasser", brutto = "244.80", netto = "205.71" },
+  { einheit = "WE17", mietverhaeltnis = "MV17", kostenart = "heizung", brutto = "448.00", netto = "376.47" },
+  { einheit = "WE17", mietverhaeltnis = "MV17", kostenart = "warmwasser", brutto = "136.00", netto = "114.29" },
+  { einheit = "GE", mietverhaeltnis = "GE1", kostenart = "heizung", brutto = "2016.00", netto = "1694.12" },
+  { einheit = "GE", mietverhaeltnis = "GE1", kostenart = "warmwasser", brutto = "612.00", netto = "514.29" },
+]

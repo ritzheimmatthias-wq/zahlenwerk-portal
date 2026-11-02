@@ -11,10 +11,10 @@ dependencies = ["defusedxml>=0.7.1"]
 
 [project.optional-dependencies]
 pdf = ["weasyprint>=68"]
-test = ["pytest>=8", "weasyprint>=68"]
+test = ["pytest>=8", "weasyprint>=68", "pypdf>=6"]
 
 [tool.setuptools]
-packages = ["auswertung"]
+packages = ["auswertung", "betriebskosten"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

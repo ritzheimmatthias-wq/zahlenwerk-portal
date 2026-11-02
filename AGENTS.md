@@ -34,6 +34,9 @@ Vault-Ordner `Projekte/Server und Kundenportal`.
 
 - `auswertung/`: Auswertungskern (Stufe 1). Import von CAMT.052/053 und CSV,
   Zuordnung über Regeln, erste Einschätzung je Objekt und Jahr.
+- `betriebskosten/`: Betriebskostenabrechnungsgenerator (Rechenkern, Prüfungen, Versionen,
+  PDF-Entwürfe). Trifft keine steuerlichen oder rechtlichen Entscheidungen; Steuerfall und
+  Umlagefähigkeit nur aus bestätigter Konfiguration. Keine automatische Versendung.
 - `tests/`: Tests mit erfundenen Beispieldaten in `tests/beispiel/`.
 - `docs/`: Entscheidungen und Abhängigkeiten.
 
@@ -45,3 +48,4 @@ Python 3.12 oder neuer; für PDF-Auszüge `pdftotext` (Paket poppler-utils).
 - Tests: `python -m pytest`
 - Erste Einschätzung: `python -m auswertung --stammdaten <datei.toml> <Auszüge ...>`
   (Ausgabe als Markdown auf die Konsole; mit `--json` als JSON).
+- Betriebskostenabrechnung: `python -m betriebskosten <daten.toml> --ausgabe <ordner> [--ablage <ordner> --person <name>]`
