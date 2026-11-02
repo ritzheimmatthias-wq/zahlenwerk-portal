@@ -315,3 +315,16 @@ def test_fremde_ausgefuellte_dokumente_nicht_erreichbar(client, settings, caplog
     for geheim in ("Müller", "Gärtnerstraße", "Übergabe Musterweg"):
         assert geheim not in protokolltext
         assert geheim not in caplog.text
+
+
+def test_vorlagen_und_ausgefuellte_fassungen_bestehen_die_uploadpruefung():
+    # Befund B3: die strengere PDF-Prüfung darf die eigenen Vorlagen und ausgefüllte Rücksendungen
+    # nicht ablehnen.
+    from kundenportal.dateipruefung import pruefe_datei
+    for v in dv.alle():
+        assert pruefe_datei(v.datei, dv.original(v)).dateityp == "pdf", v.id
+        for f in v.fassungen:
+            daten, name = dv.fassung(v, f.schluessel)
+            assert pruefe_datei(name, daten).dateityp == "pdf", (v.id, f.schluessel)
+            gefuellt, _ = ausfuellen(daten)
+            assert pruefe_datei(name, gefuellt).dateityp == "pdf", (v.id, f.schluessel, "ausgefüllt")
