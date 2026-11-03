@@ -1,0 +1,37 @@
+# Fiktive Report-Konfiguration für das Pilotobjekt. Alle Grenzen sind fachlich änderbar
+# und erscheinen in jedem Report. Beträge und Quoten als Text.
+
+[regeln]
+rundung_auf = "1.00"          # Vorschlag auf volle Euro
+rundungsart = "kaufmaennisch" # oder "aufrunden"
+bagatelle_betrag = "5.00"     # je Monat
+bagatelle_prozent = "0.05"    # der aktuellen Vorauszahlung
+mindest_nutzungstage = 180
+treiber_prozent = "0.10"
+treiber_betrag = "100.00"
+top_anzahl = 5
+
+# Nur freigegebene Änderungen fließen als getrennt ausgewiesene Annahme ein.
+[[kostenaenderungen]]
+id = "KA-2027-01"
+kostenart = "grundsteuer"
+art = "prozent"
+wert = "0.08"
+begruendung = "Neuer Grundsteuerbescheid ab 2027 (fiktiv)"
+beleg = "BEL-GS-2027 (fiktiv)"
+gilt_ab = 2027-01-01
+freigegeben_von = "Zahlenwerk Prüfung (fiktiv)"
+freigegeben_am = 2026-11-02
+
+[[kostenaenderungen]]
+id = "KA-2027-02"
+kostenart = "versicherung"
+art = "prozent"
+wert = "0.05"
+begruendung = "Angekündigte Beitragsanpassung, noch nicht belegt (fiktiv)"
+
+[[anmerkungen]]
+kostenart = "versicherung"
+text = "Gebäudeversicherung nach Schadenfall 2025 neu abgeschlossen (fiktiv)."
+freigegeben_von = "Zahlenwerk Prüfung (fiktiv)"
+freigegeben_am = 2026-11-02

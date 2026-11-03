@@ -51,6 +51,7 @@ def als_dict(erg) -> dict:
     """Strukturierte Ergebnisdaten für Portal und Exporte (ohne die Eingabedaten selbst)."""
     roh = json.loads(kanonisch({
         "regeln_version": erg.regeln_version,
+        "rundungsregeln": erg.rundungsregeln,
         "abrechnungszeitraum": erg.daten.zeitraum,
         "objekt": erg.daten.objekt,
         "mietverhaeltnisse": erg.mietverhaeltnisse,
@@ -201,6 +202,19 @@ class Ablage:
 
     def _statusereignisse(self, version: int) -> list[dict]:
         return [e for e in self.audit() if e.get("ereignis") == "status" and e.get("version") == version]
+
+    def nachrechnen(self, version: int, erg) -> bool:
+        """Prüft, ob der gespeicherte Stand unverfälscht ist und eine erneute Berechnung derselben Eingabe
+        exakt diesen Stand ergibt. Verglichen wird auch mit dem tatsächlich gespeicherten Ergebnisinhalt."""
+        try:
+            stand = self.pruefen(version)
+        except Freigabefehler:
+            return False
+        neu = als_dict(erg)
+        return (stand["eingabe_hash"] == eingabe_hash(erg.daten)
+                and stand["ergebnis"]["regeln_version"] == erg.regeln_version
+                and stand["ergebnis_hash"] == ergebnis_hash(neu)
+                and kanonisch(stand["ergebnis"]) == kanonisch(neu))
 
     def pruefen(self, version: int) -> dict:
         """Liest einen Stand und prüft Inhalt, Prüfsummen, Warnungszähler und Audit-Kette.

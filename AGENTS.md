@@ -37,6 +37,9 @@ Vault-Ordner `Projekte/Server und Kundenportal`.
 - `betriebskosten/`: Betriebskostenabrechnungsgenerator (Rechenkern, Prüfungen, Versionen,
   PDF-Entwürfe). Trifft keine steuerlichen oder rechtlichen Entscheidungen; Steuerfall und
   Umlagefähigkeit nur aus bestätigter Konfiguration. Keine automatische Versendung.
+  Dazu die Jahresreports (Vorauszahlungsanalyse, Kostenverlauf) mit versionierten Snapshots.
+  Alle Zahlen deterministisch im Code; kein Sprachmodell berechnet oder verändert Beträge,
+  Verteilungen, Umsatzsteuer, Rundungen, Salden, Prozentwerte oder Empfehlungen.
 - `tests/`: Tests mit erfundenen Beispieldaten in `tests/beispiel/`.
 - `portal/`, `kundenportal/`: Kundenportal (Django). Seiten unter `kundenportal/templates/`.
 - `kundenportal/dokumentvorlagen_dateien/<Prüfstand>/`: Dokumentvorlagen unverändert aus dem
@@ -55,3 +58,4 @@ Python 3.12 oder neuer; für PDF-Auszüge `pdftotext` (Paket poppler-utils).
 - Erste Einschätzung: `python -m auswertung --stammdaten <datei.toml> <Auszüge ...>`
   (Ausgabe als Markdown auf die Konsole; mit `--json` als JSON).
 - Betriebskostenabrechnung: `python -m betriebskosten <daten.toml> --ausgabe <ordner> [--ablage <ordner> --person <name>]`
+- Jahresreports: `python -m betriebskosten.jahresreports {vorauszahlung|kostenverlauf} --ablage <ordner> [--ablage …] --konfig <regeln.toml> --ausgabe <ordner> --person <name>`

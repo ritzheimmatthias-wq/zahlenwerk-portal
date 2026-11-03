@@ -24,8 +24,15 @@ from decimal import Decimal
 
 from .modell import CENT, NULL, Abrechnungsdaten, Kostenart, Mietverhaeltnis, Position, Zeitraum, cent
 
-REGELN_VERSION = "2026.11-1"
+REGELN_VERSION = "2026.11-2"
 GENAU = Decimal("0.000001")
+RUNDUNGSREGELN = (
+    "Belegbeträge und Messdienstwerte werden unverändert in Cent übernommen.",
+    "Zeitanteilige Abgrenzung eines Belegs: kaufmännisch auf Cent gerundet.",
+    "Verteilung je Kostenart: exakter Anteil = Betrag × Gewicht / Summe der Gewichte; abgerundet auf Cent, "
+    "die verbleibenden Cent erhalten die Empfänger mit den größten Resten (bei Gleichstand die Reihenfolge der Erfassung).",
+    "Umsatzsteuer je Kostenart und Mietverhältnis: Basis × Steuersatz, kaufmännisch auf Cent gerundet.",
+)
 
 
 @dataclass(frozen=True)
@@ -114,6 +121,7 @@ class MvErgebnis:
     saldo_brutto: Decimal = NULL
     rundung: Decimal = NULL  # Summe gerundet minus Summe exakt (brutto)
     vorsteueranteil_info: Decimal = NULL  # nur Information für den Eigentümer, keine steuerliche Feststellung
+    umlageart: str = ""
 
     @property
     def gesperrt(self) -> bool:
@@ -133,6 +141,8 @@ class KostenartKontrolle:
     leerstand_brutto: Decimal
     belege: list[str]
     vorjahr: Decimal | None = None
+    kategorie: str = "sonstige"
+    schritte: list = field(default_factory=list)  # Rechenschritte: Positionen, Gewichte, exakte und gerundete Anteile
 
 
 @dataclass
@@ -143,6 +153,7 @@ class Ergebnis:
     leerstand: dict[str, Decimal]  # Einheit -> Anteil Eigentümer brutto
     warnungen: list[Warnung]
     regeln_version: str = REGELN_VERSION
+    rundungsregeln: tuple = RUNDUNGSREGELN
 
     @property
     def rot(self) -> list[Warnung]:
@@ -158,8 +169,12 @@ class Ergebnis:
 
 # --- Hilfen -------------------------------------------------------------------------
 
-def verteile(betrag: Decimal, gewichte: dict, reihenfolge: list) -> dict:
-    """Verteilt einen Centbetrag nach Gewichten; Summe der Anteile = Betrag (größte Reste)."""
+def verteile_nachweis(betrag: Decimal, gewichte: dict, reihenfolge: list) -> tuple[dict, dict, set]:
+    """Verteilt einen Centbetrag nach Gewichten (größte Reste) und liefert den Rechenweg mit.
+
+    Rückgabe: gerundete Anteile, exakte Anteile in Euro (6 Nachkommastellen) und die Empfänger,
+    die einen Restcent erhalten haben.
+    """
     summe = sum(gewichte.values(), Decimal(0))
     if summe <= 0:
         raise ValueError("Keine Verteilungsgrundlage")
@@ -168,9 +183,25 @@ def verteile(betrag: Decimal, gewichte: dict, reihenfolge: list) -> dict:
     exakt = {k: Decimal(cents) * gewichte[k] / summe for k in reihenfolge}
     basis = {k: int(exakt[k]) for k in reihenfolge}
     rest = cents - sum(basis.values())
-    for k in sorted(reihenfolge, key=lambda k: (-(exakt[k] - basis[k]), reihenfolge.index(k)))[:rest]:
+    zuschlag = set(sorted(reihenfolge, key=lambda k: (-(exakt[k] - basis[k]), reihenfolge.index(k)))[:rest])
+    for k in zuschlag:
         basis[k] += 1
-    return {k: vorzeichen * Decimal(basis[k]) * CENT for k in reihenfolge}
+    return ({k: vorzeichen * Decimal(basis[k]) * CENT for k in reihenfolge},
+            {k: (vorzeichen * exakt[k] * CENT).quantize(GENAU) for k in reihenfolge}, zuschlag)
+
+
+def verteile(betrag: Decimal, gewichte: dict, reihenfolge: list) -> dict:
+    """Verteilt einen Centbetrag nach Gewichten; Summe der Anteile = Betrag (größte Reste)."""
+    return verteile_nachweis(betrag, gewichte, reihenfolge)[0]
+
+
+def _empf(e: tuple) -> str:
+    return f"{e[0]}:{e[1]}"
+
+
+def _schritt_anteile(g: dict, reihe: list, vb: dict, vn: dict, exakt: dict, zuschlag: set) -> list:
+    return [{"empfaenger": _empf(e), "gewicht": g[e], "exakt_brutto": exakt[e], "brutto": vb[e], "netto": vn.get(e),
+             "restcent": e in zuschlag} for e in reihe]
 
 
 def _luecken(z: Zeitraum, belegt: list[Zeitraum]) -> list[Zeitraum]:
@@ -328,14 +359,22 @@ def berechne(d: Abrechnungsdaten) -> Ergebnis:
         if ka.schluessel == "messdienst":
             kontrolle.append(_messdienst(ka, d, segs, anteile, w))
             continue
-        positionen = [q for p in d.positionen if p.kostenart == ka.id for q in [_abgrenzen(p, d.zeitraum, w)] if q]
+        original = {}
+        positionen = []
+        for p in d.positionen:
+            if p.kostenart != ka.id:
+                continue
+            q = _abgrenzen(p, d.zeitraum, w)
+            if q:
+                original[id(q)] = p
+                positionen.append(q)
         if not positionen:
             continue
         gruppen = defaultdict(list)
         for p in positionen:
             gruppen[p.einheit if ka.schluessel == "direkt" else ""].append(p)
         k = KostenartKontrolle(ka.id, ka.bezeichnung, ka.pool, ka.schluessel, NULL, NULL, NULL, NULL, NULL, [],
-                               d.vorjahr.get(ka.id))
+                               d.vorjahr.get(ka.id), ka.kategorie)
         netto_vollstaendig = True
         for einheit, ps in gruppen.items():
             if ka.schluessel == "direkt" and not einheit:
@@ -352,11 +391,22 @@ def berechne(d: Abrechnungsdaten) -> Ergebnis:
             if sum(g.values(), Decimal(0)) <= 0:
                 w.append(Warnung("rot", "keine_grundlage", f"{ka.bezeichnung}: keine Verteilungsgrundlage im Pool {ka.pool}.", ka.id))
                 continue
-            vb = verteile(brutto, g, reihe)
+            vb, exakt, zuschlag = verteile_nachweis(brutto, g, reihe)
             vn = verteile(netto, g, reihe) if netto is not None else {}
             summe_g = sum(g.values(), Decimal(0))
             zeitlich = ka.schluessel in ("flaeche", "einheiten", "personen", "direkt")
             teiler = tage_jahr if zeitlich else Decimal(1)
+            k.schritte.append({
+                "gruppe": einheit,
+                "positionen": [{"beleg": p.beleg_id, "lieferant": p.lieferant, "rechnungsnummer": p.rechnungsnummer,
+                                "sha256": p.beleg_sha256, "brutto_beleg": original[id(p)].brutto, "brutto": p.brutto,
+                                "netto": p.netto, "abgegrenzt": p is not original[id(p)]} for p in ps],
+                "betrag_brutto": brutto, "betrag_netto": netto,
+                "gewicht": {"flaeche": "m² × Tage", "einheiten": "Einheit × Tage", "direkt": "Tage",
+                            "personen": "Personen × Tage", "verbrauch": "Verbrauch"}[ka.schluessel],
+                "summe_gewichte": summe_g, "bezugsgroesse_jahr": (summe_g / teiler).quantize(GENAU),
+                "anteile": _schritt_anteile(g, reihe, vb, vn, exakt, zuschlag),
+            })
             herkunft = [{"beleg": p.beleg_id, "sha256": p.beleg_sha256, "lieferant": p.lieferant,
                          "rechnungsnummer": p.rechnungsnummer, "brutto": str(p.brutto)} for p in ps]
             for e in reihe:
@@ -387,7 +437,8 @@ def berechne(d: Abrechnungsdaten) -> Ergebnis:
 
 
 def _messdienst(ka: Kostenart, d: Abrechnungsdaten, segs, anteile, w) -> KostenartKontrolle:
-    k = KostenartKontrolle(ka.id, ka.bezeichnung, ka.pool, ka.schluessel, NULL, NULL, NULL, NULL, NULL, [], d.vorjahr.get(ka.id))
+    k = KostenartKontrolle(ka.id, ka.bezeichnung, ka.pool, ka.schluessel, NULL, NULL, NULL, NULL, NULL, [],
+                           d.vorjahr.get(ka.id), ka.kategorie)
     netto_vollstaendig = True
     mvs = {m.id: m for m in d.mietverhaeltnisse}
     for md in d.messdienst:
@@ -420,8 +471,15 @@ def _messdienst(ka: Kostenart, d: Abrechnungsdaten, segs, anteile, w) -> Kostena
                     w.append(Warnung("gelb", "zwischenablesung_fehlt",
                                      f"{ka.bezeichnung} {mw.einheit}: Nutzerwechsel ohne Zwischenablesung, zeitanteilig nach Tagen aufgeteilt. Nach Heizkostenverordnung prüfen.", mw.einheit))
             reihe = list(ziele)
-            vb = verteile(mw.brutto, ziele, reihe)
+            vb, exakt, zuschlag = verteile_nachweis(mw.brutto, ziele, reihe)
             vn = verteile(mw.netto, ziele, reihe) if mw.netto is not None else {}
+            k.schritte.append({
+                "gruppe": mw.einheit, "messdienst": md.id, "anbieter": md.anbieter, "sha256": md.dokument_sha256,
+                "betrag_brutto": mw.brutto, "betrag_netto": mw.netto,
+                "gewicht": "Messwert" if len(ziele) == 1 else "Tage (ohne Zwischenablesung)",
+                "summe_gewichte": sum(ziele.values(), Decimal(0)), "bezugsgroesse_jahr": None,
+                "anteile": _schritt_anteile(ziele, reihe, vb, vn, exakt, zuschlag),
+            })
             for e in reihe:
                 neu = Anteil(vb[e], vn.get(e), vb[e], NULL, mw.brutto, mw.netto, NULL, herkunft)
                 alt = anteile[e].get(ka.id)
@@ -487,7 +545,10 @@ def _mv_ergebnis(m: Mietverhaeltnis, d: Abrechnungsdaten, segs, anteile, w) -> M
         for z in zeilen:
             z.betrag, z.ust = z.anteil_brutto, NULL
     e = MvErgebnis(m.id, m.mieter, m.anschrift, m.einheit, d.einheit(m.einheit).bezeichnung, nutzung, nz, darstellung,
-                   s.satz if (s and darstellung == "gewerbe_netto") else None, zeilen, [])
+                   s.satz if (s and darstellung == "gewerbe_netto") else None, zeilen, [], umlageart=m.umlageart)
+    if m.umlageart == "pauschale":
+        w.append(Warnung("gelb", "pauschale", f"{m.id}: Betriebskostenpauschale laut Stammdaten. Kein Abrechnungsschreiben an den Mieter; "
+                                              "Kosten nur zur internen Übersicht.", m.id))
     e.kosten = sum((z.betrag for z in zeilen), NULL)
     e.kosten_ust = sum((z.ust for z in zeilen), NULL)
     e.kosten_brutto = e.kosten + e.kosten_ust

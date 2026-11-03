@@ -10,7 +10,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from .modell import (
-    NUTZUNGEN, POOLS, SCHLUESSEL, STEUERBEHANDLUNG, VZ_ARTEN, Abrechnungsdaten, Abschnitt, Einheit, Kostenart,
+    KATEGORIEN, NUTZUNGEN, POOLS, SCHLUESSEL, STEUERBEHANDLUNG, UMLAGEARTEN, VZ_ARTEN, Abrechnungsdaten, Abschnitt, Einheit, Kostenart,
     Messdienstabrechnung, Messwert, Mietverhaeltnis, Objekt, Personen, Position, Steuerfall, Vorauszahlung, Zeitraum,
 )
 
@@ -105,13 +105,17 @@ def aus_dict(d: dict) -> Abrechnungsdaten:
                 bestaetigt_am=s.get("bestaetigt_am"),
             )
         verbrauch = {k: _dez(v, f"{mid}.verbrauch.{k}") for k, v in m.get("verbrauch", {}).items()}
+        vz_monatlich = {_wahl(k, VZ_ARTEN, f"{mid}.vz_monatlich"): _geld(v, f"{mid}.vz_monatlich.{k}")
+                        for k, v in m.get("vz_monatlich", {}).items()}
         mvs.append(Mietverhaeltnis(mid, m["einheit"], m["mieter"], zr, tuple(vz), personen, verbrauch, steuer,
-                                   m.get("anschrift", "")))
+                                   m.get("anschrift", ""), _wahl(m.get("umlageart", ""), UMLAGEARTEN, f"{mid}.umlageart"),
+                                   vz_monatlich))
 
     kostenarten = tuple(
         Kostenart(k["id"], k["bezeichnung"], _wahl(k["schluessel"], SCHLUESSEL, f"{k['id']}.schluessel"),
                   _wahl(k.get("pool", "alle"), POOLS, f"{k['id']}.pool"),
-                  bool(k.get("umlagefaehig_bestaetigt", False)), bool(k.get("heizkosten", False)))
+                  bool(k.get("umlagefaehig_bestaetigt", False)), bool(k.get("heizkosten", False)),
+                  _wahl(k.get("kategorie", "sonstige"), KATEGORIEN, f"{k['id']}.kategorie"))
         for k in d.get("kostenarten", [])
     )
 

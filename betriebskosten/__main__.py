@@ -25,11 +25,15 @@ def main(argv: list[str] | None = None) -> int:
 
     daten = lade(a.daten)
     erg = berechne(daten)
-    version = None
+    version = erstellt = None
+    status = "entwurf"
     if a.ablage:
-        version, neu = Ablage(a.ablage).speichern(erg, zeit=datetime.now().astimezone(), person=a.person or "unbekannt")
-        print(f"Berechnungsstand Version {version} ({'neu' if neu else 'unverändert'})")
-    dateien = schreibe_lauf(erg, a.ausgabe, version=version, eingabe_hash=eingabe_hash(daten))
+        ablage = Ablage(a.ablage)
+        version, neu = ablage.speichern(erg, zeit=datetime.now().astimezone(), person=a.person or "unbekannt")
+        erstellt = datetime.fromisoformat(ablage.lesen(version)["erstellt"])
+        status = ablage.status(version)
+        print(f"Berechnungsstand Version {version} ({'neu' if neu else 'unverändert'}, Status {status})")
+    dateien = schreibe_lauf(erg, a.ausgabe, version=version, status=status, eingabe_hash=eingabe_hash(daten), erstellt=erstellt)
     for m in erg.mietverhaeltnisse:
         print(f"{m.id:>6}  {DARSTELLUNG[m.darstellung]:<36} Saldo {eur(m.saldo_brutto):>14}")
     print(f"{len(erg.rot)} rote, {len(erg.gelb)} gelbe Warnungen. {len(dateien)} Dateien in {a.ausgabe}")

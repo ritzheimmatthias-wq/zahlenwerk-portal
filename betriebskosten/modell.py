@@ -19,6 +19,8 @@ POOLS = ("alle", "wohnen", "gewerbe")
 SCHLUESSEL = ("flaeche", "personen", "einheiten", "verbrauch", "direkt", "messdienst")
 STEUERBEHANDLUNG = ("steuerfrei", "steuerpflichtig", "ungeklaert")
 VZ_ARTEN = ("betriebskosten", "heizkosten")
+UMLAGEARTEN = ("vorauszahlung", "pauschale", "")  # leer = vertragliche Einordnung nicht erfasst
+KATEGORIEN = ("heizung", "warmwasser", "kaltwasser", "sonstige")  # Gliederung im Kostenverlaufsbericht
 
 
 def cent(b: Decimal) -> Decimal:
@@ -104,6 +106,8 @@ class Mietverhaeltnis:
     verbrauch: dict = field(default_factory=dict)  # Kostenart -> Verbrauch im Nutzungszeitraum
     steuer: Steuerfall | None = None
     anschrift: str = ""
+    umlageart: str = ""  # vorauszahlung oder pauschale laut Mietvertrag; leer = nicht erfasst
+    vz_monatlich: dict = field(default_factory=dict)  # aktuelle monatliche Vorauszahlung je Art (Stand heute)
 
 
 @dataclass(frozen=True)
@@ -114,6 +118,7 @@ class Kostenart:
     pool: str = "alle"
     umlagefaehig_bestaetigt: bool = False
     heizkosten: bool = False  # Vorauszahlungsart heizkosten statt betriebskosten
+    kategorie: str = "sonstige"  # heizung, warmwasser, kaltwasser oder sonstige (nur für Berichte)
 
 
 @dataclass(frozen=True)

@@ -10,6 +10,9 @@ Alle Werte werden maskiert, externe Ressourcen werden nicht geladen.
 from __future__ import annotations
 
 import json
+import os
+import threading
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from html import escape
 from pathlib import Path
@@ -58,6 +61,9 @@ tr { break-inside: avoid; }
 .klein { font-size: 7.5pt; color: #5f6d68; }
 table.eng { font-size: 7.5pt; } table.eng th, table.eng td { padding: 2.5pt 3pt; }
 """
+
+
+_LOCK = threading.Lock()  # SOURCE_DATE_EPOCH ist prozessweit
 
 
 def _e(x) -> str:
@@ -224,7 +230,12 @@ def kontrollbericht_html(erg: Ergebnis, *, version: int | None = None, eingabe_h
 </body></html>"""
 
 
-def als_pdf(html: str) -> bytes:
+def als_pdf(html: str, *, erstellt: datetime | date | None = None) -> bytes:
+    """Erzeugt ein PDF ohne externe Ressourcen.
+
+    Mit `erstellt` ist das PDF byte-identisch reproduzierbar: Erstellungsdatum im PDF und
+    Zeitstempel der eingebetteten Schriften werden auf diesen Zeitpunkt gesetzt.
+    """
     from weasyprint import HTML
     from weasyprint.urls import URLFetcher
 
@@ -232,25 +243,48 @@ def als_pdf(html: str) -> bytes:
         def fetch(self, url, headers=None):
             raise ValueError(f"Externe Ressourcen sind nicht erlaubt: {url[:80]}")
 
-    return HTML(string=html, url_fetcher=KeinNachladen()).write_pdf()
+    if erstellt is None:
+        return HTML(string=html, url_fetcher=KeinNachladen()).write_pdf()
+    if not isinstance(erstellt, datetime):
+        erstellt = datetime(erstellt.year, erstellt.month, erstellt.day, tzinfo=timezone.utc)
+    if erstellt.tzinfo is None:
+        erstellt = erstellt.replace(tzinfo=timezone.utc)
+    stempel = erstellt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    meta = f'<meta name="dcterms.created" content="{stempel}"><meta name="dcterms.modified" content="{stempel}">'
+    html = html.replace("<head>", "<head>" + meta, 1)
+    with _LOCK:
+        alt = os.environ.get("SOURCE_DATE_EPOCH")
+        os.environ["SOURCE_DATE_EPOCH"] = str(int(erstellt.timestamp()))
+        try:
+            return HTML(string=html, url_fetcher=KeinNachladen()).write_pdf()
+        finally:
+            if alt is None:
+                os.environ.pop("SOURCE_DATE_EPOCH", None)
+            else:
+                os.environ["SOURCE_DATE_EPOCH"] = alt
 
 
 def schreibe_lauf(erg: Ergebnis, ziel: str | Path, *, version: int | None = None, status: str = "entwurf",
-                  eingabe_hash: str = "") -> list[Path]:
-    """Schreibt Ergebnisdaten (JSON), Kontrollbericht und je nicht gesperrtem Mietverhältnis einen PDF-Entwurf."""
+                  eingabe_hash: str = "", erstellt: datetime | date | None = None) -> list[Path]:
+    """Schreibt Ergebnisdaten (JSON), Kontrollbericht und je abrechenbarem Mietverhältnis einen PDF-Entwurf.
+
+    Gesperrte Mietverhältnisse und Pauschalen erhalten kein Abrechnungsschreiben. Ohne `erstellt`
+    gilt das Ende des Abrechnungszeitraums als Erstellungszeitpunkt, damit gleiche Daten gleiche Dateien ergeben.
+    """
     from .version import als_dict
 
+    erstellt = erstellt or erg.daten.zeitraum.bis
     ziel = Path(ziel)
     ziel.mkdir(parents=True, exist_ok=True)
     dateien = [ziel / "ergebnis.json"]
-    dateien[0].write_text(json.dumps(als_dict(erg), ensure_ascii=False, indent=1), encoding="utf-8")
+    dateien[0].write_text(json.dumps(als_dict(erg), ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
     p = ziel / "kontrollbericht.pdf"
-    p.write_bytes(als_pdf(kontrollbericht_html(erg, version=version, eingabe_hash=eingabe_hash)))
+    p.write_bytes(als_pdf(kontrollbericht_html(erg, version=version, eingabe_hash=eingabe_hash), erstellt=erstellt))
     dateien.append(p)
     for m in erg.mietverhaeltnisse:
-        if m.gesperrt:
+        if m.gesperrt or m.umlageart == "pauschale":
             continue
         p = ziel / f"abrechnung_{m.id}.pdf"
-        p.write_bytes(als_pdf(abrechnung_html(erg, m, version=version, status=status)))
+        p.write_bytes(als_pdf(abrechnung_html(erg, m, version=version, status=status), erstellt=erstellt))
         dateien.append(p)
     return dateien
