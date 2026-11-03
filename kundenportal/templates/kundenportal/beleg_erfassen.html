@@ -1,0 +1,22 @@
+{% extends "kundenportal/base.html" %}
+{% load static %}
+{% block titel %}Beleg erfassen{% endblock %}
+{% block inhalt %}
+<div><a class="meta" href="{% url 'auftrag' a.pk %}">‹ Zurück zum Auftrag</a><h1>Beleg mit dem Smartphone erfassen</h1>
+<p class="lead">{{ a }} · {{ a.objekt.bezeichnung }}. Fotografieren Sie jede Seite eines Belegs. Vor dem Absenden können Sie Seiten drehen, zuschneiden oder neu aufnehmen.</p></div>
+{% if fehler %}<div class="note fehler" role="alert">{{ fehler }}</div>{% endif %}
+<div class="card">
+  <form method="post" enctype="multipart/form-data" id="belegformular"
+        data-vorgang-url="{% url 'beleg_vorgang' a.pk %}" data-auftrag="{{ a.pk }}" data-max-seiten="{{ max_seiten }}">
+    {% csrf_token %}
+    <label for="seiten">Seiten (Fotos oder PDF, bis {{ max_seiten }} Seiten)
+      <input type="file" id="seiten" name="seiten" accept="image/jpeg,image/png,application/pdf" capture="environment" multiple></label>
+    <label for="hinweis">Hinweis (optional)<input type="text" id="hinweis" name="hinweis" maxlength="500"></label>
+    <div id="vorschau" class="seitenliste" aria-live="polite"></div>
+    <p id="status" class="meta" role="status"></p>
+    <button class="btn" type="submit" id="absenden">Beleg senden</button>
+  </form>
+  <div class="note">Große Fotos werden vor dem Senden lesbar verkleinert. Jede Seite wird wie ein PDF-Upload geprüft, verschlüsselt gespeichert und von Zahlenwerk kontrolliert. Bricht die Verbindung ab, setzt die Seite die Übertragung beim nächsten Öffnen fort.</div>
+</div>
+<script src="{% static 'kundenportal/belegerfassung.js' %}" defer></script>
+{% endblock %}

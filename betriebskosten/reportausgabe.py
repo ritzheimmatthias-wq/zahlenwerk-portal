@@ -24,6 +24,8 @@ REPORT_CSS = CSS + """
 .empfehlung.keine, .empfehlung.pauschale { border-left-color: #9a5b12; background: #fbf5ec; }
 .seite { break-before: page; } .seite:first-of-type { break-before: auto; }
 .diagramm { break-inside: avoid; margin: 6pt 0 10pt; }
+.diagramm-svg { display: block; max-width: 640px; }
+.zurueck { font-size: 9pt; }
 ul { margin: 2pt 0 6pt 14pt; padding: 0; }
 @media screen { body { max-width: 760px; margin: 0 auto; padding: 16px; } .fuss { display: none; } }
 @media screen and (max-width: 520px) { table { font-size: 8pt; } .kachel { flex-basis: 45%; } }
@@ -56,9 +58,13 @@ def _stempel(status: str, nummer: int | None) -> str:
     return f'<div class="stempel">ENTWURF{f" · Report {nummer}" if nummer else ""} · nicht weitergeben</div>'
 
 
-def _dokument(titel: str, fuss: str, inhalt: str) -> str:
+def _dokument(titel: str, fuss: str, inhalt: str, css_href: str = "", zurueck: str = "") -> str:
+    """Ohne css_href mit eingebettetem Stil (PDF). Mit css_href für die Portalansicht (strenge CSP ohne Inline-Stile)."""
+    stil = f'<link rel="stylesheet" href="{_e(css_href)}">' if css_href else f"<style>{REPORT_CSS}</style>"
+    kopf = f'<p class="zurueck"><a href="{_e(zurueck)}">‹ Zurück</a></p>' if zurueck else ""
     return (f'<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-            f'<title>{_e(titel)}</title><style>{REPORT_CSS}</style></head><body><div class="fuss">{_e(fuss)}</div>{inhalt}</body></html>')
+            f'<meta name="robots" content="noindex, nofollow"><title>{_e(titel)}</title>{stil}</head>'
+            f'<body><div class="fuss">{_e(fuss)}</div>{kopf}{inhalt}</body></html>')
 
 
 def _regeln(inhalt: dict) -> str:
@@ -111,13 +117,14 @@ def vorauszahlung_abschnitt(inhalt: dict, mv: dict) -> str:
     return "".join(t)
 
 
-def vorauszahlung_html(snapshot: dict, status: str, mv_id: str | None = None) -> str:
+def vorauszahlung_html(snapshot: dict, status: str, mv_id: str | None = None, **portal) -> str:
     inhalt = snapshot["inhalt"]
     mvs = [m for m in inhalt["mietverhaeltnisse"] if mv_id is None or m["id"] == mv_id]
     if not mvs:
         raise ValueError(f"Mietverhältnis {mv_id} ist nicht im Report enthalten")
     teile = [_stempel(status, snapshot["nummer"])] + [vorauszahlung_abschnitt(inhalt, m) for m in mvs] + [_regeln(inhalt)]
-    return _dokument("Vorauszahlungsanalyse", f"Vorauszahlungsanalyse · {inhalt['grundlage']['objekt']} · Report {snapshot['nummer']}", "".join(teile))
+    return _dokument("Vorauszahlungsanalyse", f"Vorauszahlungsanalyse · {inhalt['grundlage']['objekt']} · Report {snapshot['nummer']}",
+                     "".join(teile), **portal)
 
 
 # --- Report 2 -----------------------------------------------------------------------
@@ -192,10 +199,10 @@ def kostenverlauf_abschnitt(inhalt: dict) -> str:
     return "".join(t)
 
 
-def kostenverlauf_html(snapshot: dict, status: str) -> str:
+def kostenverlauf_html(snapshot: dict, status: str, **portal) -> str:
     inhalt = snapshot["inhalt"]
     return _dokument("Kostenverlaufsbericht", f"Kostenverlauf · {inhalt['objekt']['name']} · Report {snapshot['nummer']}",
-                     _stempel(status, snapshot["nummer"]) + kostenverlauf_abschnitt(inhalt))
+                     _stempel(status, snapshot["nummer"]) + kostenverlauf_abschnitt(inhalt), **portal)
 
 
 def report_pdf(snapshot: dict, status: str, mv_id: str | None = None) -> bytes:

@@ -63,3 +63,16 @@ def kunde_hinweis(auftrag: Auftrag, empfaenger: list[str], anlass: str) -> None:
         None,
         empfaenger,
     )
+
+
+def eingang_bestaetigen(eingang) -> None:
+    """Nur Eingangsbestätigung, keine fachliche Aussage. Standardmäßig aus (PORTAL_BELEGE_EINGANGSBESTAETIGUNG=1)."""
+    if not eingang.absender:
+        return
+    send_mail(
+        "Eingang Ihrer Belege",
+        f"Guten Tag,\n\nIhre Nachricht „{eingang.betreff[:120]}“ ist bei uns eingegangen (Eingangsnummer "
+        f"{str(eingang.eingang_id)[:8]}). Die Belege werden geprüft; dies ist keine fachliche Freigabe." + GRUSS,
+        None,
+        [eingang.absender],
+    )

@@ -1,0 +1,49 @@
+{% extends "kundenportal/base.html" %}
+{% block titel %}Betriebskosten · {{ o.bezeichnung }}{% endblock %}
+{% block inhalt %}
+<div><a class="meta" href="{% url 'intern' %}">‹ Zurück zum Eingang</a><h1>Betriebskosten und Jahresreports · {{ o.bezeichnung }}</h1>
+<p class="lead">Berechnung ausschließlich im Rechenkern, deterministisch und versioniert. Freigabestufen: Entwurf → fachlich geprüft → vom Eigentümer freigegeben → endgültig. Reports nur aus endgültigen Ständen. Nichts wird versendet.</p>
+<p class="meta">Objektkennung für die Abrechnungsdaten: <code>[objekt] portal_id = "{{ o.kennung }}"</code>. Der Abrechnungszeitraum muss im Auftragsjahr enden; Daten eines anderen Objekts oder Jahres werden abgewiesen.</p></div>
+{% for a in auftraege %}
+<div class="card"><h2>{{ a }}</h2>
+  <div class="tbl-wrap"><table><thead><tr><th>Version</th><th>Status</th><th>Warnungen</th><th>Prüfsumme</th><th>Erstellt</th><th>Aktion</th></tr></thead><tbody>
+  {% for l in a.abrechnungslaeufe.all %}
+    <tr><td class="num">{{ l.version }}</td><td>{{ l.get_status_display }}</td>
+    <td>{% if l.rote_warnungen %}<span class="pill p-bad">{{ l.rote_warnungen }} rot</span>{% endif %}{% if l.gelbe_warnungen %}<span class="pill p-warn">{{ l.gelbe_warnungen }} gelb</span>{% endif %}{% if not l.rote_warnungen and not l.gelbe_warnungen %}keine{% endif %}</td>
+    <td class="meta">{{ l.ergebnis_hash|slice:":12" }}</td><td class="meta">{{ l.erstellt|date:"d.m.Y H:i" }}</td>
+    <td>{% if forloop.last and l.status != "endgueltig" and not l.rote_warnungen %}
+      <form method="post" action="{% url 'intern_lauf_status' l.pk %}" class="inline">{% csrf_token %}
+      <input type="hidden" name="status" value="{{ l.naechster_status }}">
+      <button class="btn small" type="submit">Weiter zu: {{ l.naechster_status_text }}</button></form>{% endif %}
+      {% if l.status == "endgueltig" %}<form method="post" action="{% url 'intern_report_erstellen' o.pk %}" enctype="multipart/form-data" class="inline">{% csrf_token %}
+      <input type="hidden" name="art" value="vorauszahlung"><input type="hidden" name="lauf" value="{{ l.pk }}">
+      <label class="meta">Regeln (TOML, optional)<input type="file" name="regeln" accept=".toml,text/plain"></label>
+      <button class="btn small" type="submit">Vorauszahlungsanalyse erstellen</button></form>{% endif %}</td></tr>
+    {% if l.rote_warnungen or l.gelbe_warnungen %}<tr><td colspan="6"><ul class="meta">{% for w in l.stand.ergebnis.warnungen %}<li>[{{ w.stufe }}] {{ w.text }}</li>{% endfor %}</ul></td></tr>{% endif %}
+  {% empty %}<tr><td colspan="6" class="meta">Noch kein Berechnungsstand.</td></tr>{% endfor %}
+  </tbody></table></div>
+  <form method="post" action="{% url 'intern_lauf_anlegen' a.pk %}" enctype="multipart/form-data" class="card flat">{% csrf_token %}
+    <label>Abrechnungsdaten (TOML)<input type="file" name="daten" accept=".toml,text/plain" required></label>
+    <button class="btn" type="submit">Berechnen und als neuen Stand ablegen</button></form>
+</div>
+{% empty %}<div class="card"><p class="meta">Dieses Objekt hat keinen Betriebskostenauftrag.</p></div>{% endfor %}
+<div class="card"><h2>Jahresreports</h2>
+  <form method="post" action="{% url 'intern_report_erstellen' o.pk %}" enctype="multipart/form-data" class="inline">{% csrf_token %}
+    <input type="hidden" name="art" value="kostenverlauf">
+    <label class="meta">Regeln (TOML, optional)<input type="file" name="regeln" accept=".toml,text/plain"></label>
+    <button class="btn small" type="submit">Kostenverlaufsbericht aus allen endgültigen Jahren erstellen</button></form>
+  <ul class="list">
+  {% for r in reports %}
+    <li><a href="{% url 'bericht' r.pk %}"><strong>{{ r.get_art_display }} Nr. {{ r.nummer }}</strong></a>
+      <span class="pill {% if r.status == 'freigegeben' %}p-ok{% else %}p-warn{% endif %}">{{ r.get_status_display }}</span>
+      <span class="sub meta">erstellt {{ r.erstellt|date:"d.m.Y H:i" }} · Prüfsumme {{ r.inhalt_hash|slice:":12" }} · <a href="{% url 'bericht_pdf' r.pk %}">PDF</a>
+      {% for w in r.statuswechsel.all %} · {{ w.status }} ({{ w.benutzer.email|default:"–" }}, {{ w.zeit|date:"d.m.Y" }}){% endfor %}</span>
+      {% if r.status != "freigegeben" %}<form method="post" action="{% url 'intern_report_status' r.pk %}" class="inline">{% csrf_token %}
+        <input type="hidden" name="status" value="{% if r.status == 'entwurf' %}fachlich_geprueft{% else %}freigegeben{% endif %}">
+        <button class="btn small" type="submit">{% if r.status == 'entwurf' %}als fachlich geprüft markieren{% else %}für den Eigentümer freigeben{% endif %}</button></form>{% endif %}
+    </li>
+  {% empty %}<li class="meta">Noch kein Report.</li>{% endfor %}
+  </ul>
+  <p class="meta">Der Eigentümer sieht nur freigegebene Reports. Eine Freigabe versendet nichts.</p>
+</div>
+{% endblock %}

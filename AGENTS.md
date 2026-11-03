@@ -40,6 +40,9 @@ Vault-Ordner `Projekte/Server und Kundenportal`.
   Dazu die Jahresreports (Vorauszahlungsanalyse, Kostenverlauf) mit versionierten Snapshots.
   Alle Zahlen deterministisch im Code; kein Sprachmodell berechnet oder verändert Beträge,
   Verteilungen, Umsatzsteuer, Rundungen, Salden, Prozentwerte oder Empfehlungen.
+- `kundenportal/abrechnung.py`, `kundenportal/belege.py`: Abrechnungsläufe, Report-Snapshots und
+  Belegeingang (Smartphone, belege@). Siehe `docs/belegeingang-und-reports.md`. Webhook-Geheimnis und
+  IMAP-Zugang nur als Server-Secrets; Smartphone-Erfassung für Kunden erst nach Freigabe.
 - `tests/`: Tests mit erfundenen Beispieldaten in `tests/beispiel/`.
 - `portal/`, `kundenportal/`: Kundenportal (Django). Seiten unter `kundenportal/templates/`.
 - `kundenportal/dokumentvorlagen_dateien/<Prüfstand>/`: Dokumentvorlagen unverändert aus dem
@@ -53,7 +56,10 @@ Vault-Ordner `Projekte/Server und Kundenportal`.
 Python 3.12 oder neuer; für PDF-Auszüge `pdftotext` (Paket poppler-utils).
 
 - Abhängigkeiten: `pip install -e ".[test]"`
-- Tests: `python -m pytest`
+- Tests: `python -m pytest` (SQLite). Gegen eine Wegwerf-PostgreSQL: `PORTAL_TEST_POSTGRES=1 PORTAL_TEST_PG_HOST=… python -m pytest`.
+  Browsertests der Smartphone-Erfassung: Extra `[browser]`, `python -m pytest tests/test_browser_belegerfassung.py`.
+- Datenbank-Trigger (Migration 0003) schützen Statusverlauf und Inhalte von Läufen und Reports. Tests, die
+  Daten absichtlich verfälschen, tragen `@pytest.mark.manipulation`.
 - Portal lokal: `PORTAL_DEBUG=1 python manage.py runserver` (vorher `migrate`).
 - Erste Einschätzung: `python -m auswertung --stammdaten <datei.toml> <Auszüge ...>`
   (Ausgabe als Markdown auf die Konsole; mit `--json` als JSON).

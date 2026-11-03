@@ -98,6 +98,8 @@ class Objekt(models.Model):
     wirtschaftsjahr = models.CharField(max_length=40, default="Kalenderjahr")
     heizung = models.CharField(max_length=60, blank=True)
     steckbrief = models.JSONField(default=dict, blank=True)  # weitere freie Angaben
+    # Verbindliche Objektkennung für Importe (z. B. Abrechnungsdaten: objekt.portal_id)
+    kennung = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     angelegt = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -212,6 +214,25 @@ class Checklistenpunkt(models.Model):
         return self.text
 
 
+class Belegvorgang(models.Model):
+    """Ein Beleg aus einer oder mehreren Seiten, egal ob per Upload, Smartphone oder E-Mail eingegangen."""
+
+    QUELLEN = [("portal", "Portal-Upload"), ("mobil", "Smartphone-Erfassung"), ("email", "belege@-Postfach")]
+    STATUS = [("offen", "wird übertragen"), ("eingegangen", "eingegangen"), ("geprueft", "geprüft")]
+    auftrag = models.ForeignKey(Auftrag, on_delete=models.CASCADE, related_name="belegvorgaenge")
+    quelle = models.CharField(max_length=10, choices=QUELLEN)
+    status = models.CharField(max_length=12, choices=STATUS, default="offen")
+    eingang_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    hinweis = models.CharField(max_length=1000, blank=True)  # Freitext, nie als Anweisung ausgeführt
+    erstellt_von = models.ForeignKey("Benutzer", null=True, blank=True, on_delete=models.SET_NULL)
+    erstellt = models.DateTimeField(auto_now_add=True)
+    abgeschlossen = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-erstellt"]
+        verbose_name_plural = "Belegvorgänge"
+
+
 class Dokument(models.Model):
     RICHTUNGEN = [("kunde", "vom Kunden"), ("ergebnis", "von Zahlenwerk")]
     SCAN = [("sauber", "sauber"), ("nicht_geprueft", "nicht geprüft")]
@@ -232,9 +253,188 @@ class Dokument(models.Model):
     geprueft = models.DateTimeField(null=True, blank=True)
     gelesen = models.DateTimeField(null=True, blank=True)  # Ergebnis vom Kunden abgerufen
     geloescht = models.DateTimeField(null=True, blank=True)
+    belegvorgang = models.ForeignKey(Belegvorgang, null=True, blank=True, on_delete=models.SET_NULL, related_name="seiten")
+    seite = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         ordering = ["-hochgeladen"]
+
+
+class Maileingang(models.Model):
+    """Eine Nachricht aus dem eigenständigen Postfach belege@ (über n8n oder IMAP-Rückfallweg).
+
+    Der Eintrag entsteht vor jeder Verarbeitung, damit keine Nachricht verloren geht.
+    Message-ID verhindert Doppelverarbeitung. Der Text ist nur ein Hinweis, nie eine Anweisung.
+    """
+
+    STATUS = [("neu", "neu"), ("in_bearbeitung", "in Bearbeitung"), ("verarbeitet", "verarbeitet"),
+              ("zuordnung_offen", "Zuordnung offen"), ("quarantaene", "Quarantäne"), ("fehler", "Fehler")]
+    ABGESCHLOSSEN = ("verarbeitet", "zuordnung_offen", "quarantaene")
+    eingang_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    message_id = models.CharField(max_length=300, unique=True)
+    kanal = models.CharField(max_length=10, default="webhook")  # webhook oder imap
+    absender = models.EmailField(max_length=254, blank=True)
+    betreff = models.CharField(max_length=300, blank=True)
+    text = models.TextField(blank=True, max_length=5000)
+    empfangen = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS, default="neu")
+    auftrag = models.ForeignKey(Auftrag, null=True, blank=True, on_delete=models.SET_NULL, related_name="maileingaenge")
+    belegvorgang = models.ForeignKey(Belegvorgang, null=True, blank=True, on_delete=models.SET_NULL)
+    versuche = models.PositiveIntegerField(default=0)
+    fehler = models.CharField(max_length=500, blank=True)
+    # Alle Anhänge sind verschlüsselt gesichert (Eingangsdatei mit Status „empfangen“ oder später)
+    roh_gespeichert = models.BooleanField(default=False)
+    bearbeitung_bis = models.DateTimeField(null=True, blank=True)  # befristeter Bearbeitungsanspruch
+    # Kennung des Laufs, der den Anspruch hält. Ein verspäteter Lauf mit altem Token schreibt nichts mehr.
+    bearbeitung_token = models.CharField(max_length=32, blank=True)
+    angelegt = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-angelegt"]
+        verbose_name_plural = "Maileingänge"
+
+
+class Eingangsdatei(models.Model):
+    """Anhang aus dem Maileingang. Ohne Zuordnung oder bei Verdacht bleibt er verschlüsselt in der Quarantäne."""
+
+    STATUS = [("empfangen", "empfangen, noch nicht verarbeitet"), ("uebernommen", "übernommen"),
+              ("zuordnung_offen", "Zuordnung offen"), ("quarantaene", "Quarantäne"), ("dublette", "Dublette")]
+    maileingang = models.ForeignKey(Maileingang, on_delete=models.CASCADE, related_name="dateien")
+    position = models.PositiveIntegerField(default=0)  # Reihenfolge der Anhänge in der Nachricht
+    originalname = models.CharField(max_length=255)
+    groesse = models.PositiveBigIntegerField()
+    sha256 = models.CharField(max_length=64)
+    speicher_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    schluessel = models.BinaryField(null=True)  # leer, wenn die Datei nicht gespeichert wurde (z. B. Virenfund)
+    status = models.CharField(max_length=20, choices=STATUS)
+    grund = models.CharField(max_length=300, blank=True)
+    dokument = models.ForeignKey(Dokument, null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        verbose_name_plural = "Eingangsdateien"
+        ordering = ["maileingang", "position", "id"]
+
+
+class Abrechnungslauf(models.Model):
+    """Unveränderlicher Berechnungsstand einer Betriebskostenabrechnung (Format wie betriebskosten.version.Ablage)."""
+
+    STATUS = [("entwurf", "Entwurf"), ("fachlich_geprueft", "fachlich geprüft"),
+              ("eigentuemer_freigegeben", "vom Eigentümer freigegeben"), ("endgueltig", "endgültig")]
+    auftrag = models.ForeignKey(Auftrag, on_delete=models.CASCADE, related_name="abrechnungslaeufe")
+    version = models.PositiveIntegerField()
+    status = models.CharField(max_length=30, choices=STATUS, default="entwurf")
+    eingabe_hash = models.CharField(max_length=64)
+    ergebnis_hash = models.CharField(max_length=64)
+    regeln_version = models.CharField(max_length=20)
+    rote_warnungen = models.PositiveIntegerField()
+    gelbe_warnungen = models.PositiveIntegerField()
+    stand = models.JSONField()
+    erstellt = models.DateTimeField()
+    erstellt_von = models.ForeignKey("Benutzer", null=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        unique_together = [("auftrag", "version")]
+        ordering = ["auftrag", "version"]
+
+    @property
+    def naechster_status(self) -> str:
+        k = [s for s, _ in self.STATUS]
+        i = k.index(self.status)
+        return k[i + 1] if i + 1 < len(k) else ""
+
+    @property
+    def naechster_status_text(self) -> str:
+        return dict(self.STATUS).get(self.naechster_status, "")
+
+    def save(self, *args, **kwargs):
+        if self.pk and set(kwargs.get("update_fields") or ()) != {"status"}:
+            raise ValueError("Ein Berechnungsstand ist unveränderlich; nur der Status kann sich ändern.")
+        super().save(*args, **kwargs)
+
+
+class Report(models.Model):
+    """Versionierter Snapshot eines Jahresreports (Vorauszahlungsanalyse oder Kostenverlauf)."""
+
+    ARTEN = [("vorauszahlung", "Vorauszahlungsanalyse"), ("kostenverlauf", "Kostenverlaufsbericht")]
+    STATUS = [("entwurf", "Entwurf"), ("fachlich_geprueft", "fachlich geprüft"), ("freigegeben", "freigegeben")]
+    objekt = models.ForeignKey(Objekt, on_delete=models.CASCADE, related_name="reports")
+    art = models.CharField(max_length=20, choices=ARTEN)
+    nummer = models.PositiveIntegerField()
+    status = models.CharField(max_length=20, choices=STATUS, default="entwurf")
+    laeufe = models.ManyToManyField(Abrechnungslauf, related_name="reports")
+    inhalt = models.JSONField()
+    inhalt_hash = models.CharField(max_length=64)
+    erstellt = models.DateTimeField()
+    erstellt_von = models.ForeignKey("Benutzer", null=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        unique_together = [("objekt", "art", "nummer")]
+        ordering = ["objekt", "art", "-nummer"]
+
+    def save(self, *args, **kwargs):
+        if self.pk and set(kwargs.get("update_fields") or ()) != {"status"}:
+            raise ValueError("Ein Report-Snapshot ist unveränderlich; nur der Status kann sich ändern.")
+        super().save(*args, **kwargs)
+
+    def snapshot(self) -> dict:
+        return {"report": self.art, "nummer": self.nummer, "erstellt": self.erstellt.isoformat(), "inhalt": self.inhalt}
+
+
+class Unveraenderlich(Exception):
+    pass
+
+
+class StatuswechselQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise Unveraenderlich("Statuswechsel sind unveränderlich; Korrekturen sind neue Ereignisse.")
+
+    def delete(self):
+        raise Unveraenderlich("Statuswechsel werden nicht gelöscht.")
+
+    def bulk_update(self, *args, **kwargs):
+        raise Unveraenderlich("Statuswechsel sind unveränderlich.")
+
+
+class Statuswechsel(models.Model):
+    """Freigabeschritte von Abrechnungsläufen und Reports als unveränderliche, verkettete Ereignisse.
+
+    Jeder Eintrag trägt die Prüfsumme des Vorgängers (gleicher Lauf bzw. Report) und die Prüfsumme des
+    freigegebenen Inhalts (`bezug_hash`). Änderungen über das Modell, Bulk-Updates und Löschen über den
+    Manager sind gesperrt; in der Datenbank verhindern Trigger UPDATE (PostgreSQL zusätzlich DELETE).
+    Systemadministratoren mit vollen Datenbankrechten sind damit nicht technisch ausgeschlossen; eine
+    Veränderung wird aber über die Kette erkannt und sperrt Folgeaktionen.
+    """
+
+    lauf = models.ForeignKey(Abrechnungslauf, null=True, blank=True, on_delete=models.CASCADE, related_name="statuswechsel")
+    report = models.ForeignKey(Report, null=True, blank=True, on_delete=models.CASCADE, related_name="statuswechsel")
+    status = models.CharField(max_length=30)
+    benutzer = models.ForeignKey("Benutzer", null=True, on_delete=models.SET_NULL)
+    zeit = models.DateTimeField(default=timezone.now)
+    notiz = models.CharField(max_length=500, blank=True)
+    bezug_hash = models.CharField(max_length=64, blank=True)
+    vorher_hash = models.CharField(max_length=64, blank=True)
+    eintrag_hash = models.CharField(max_length=64, blank=True)
+
+    objects = StatuswechselQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["zeit", "id"]
+
+    def berechne_hash(self) -> str:
+        import hashlib
+        import json
+
+        daten = {"lauf": self.lauf_id, "report": self.report_id, "status": self.status, "benutzer": self.benutzer_id,
+                 "zeit": self.zeit.isoformat(), "notiz": self.notiz, "bezug": self.bezug_hash, "vorher": self.vorher_hash}
+        return hashlib.sha256(json.dumps(daten, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise Unveraenderlich("Statuswechsel sind unveränderlich; Korrekturen sind neue Ereignisse.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise Unveraenderlich("Statuswechsel werden nicht gelöscht.")
 
 
 class Protokoll(models.Model):

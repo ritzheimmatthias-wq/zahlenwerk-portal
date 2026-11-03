@@ -81,3 +81,12 @@ def mit_objektstrom(aktion: bytes) -> bytes:
 
 def beschaedigt() -> bytes:
     return b"%PDF-1.7\n1 0 obj<</Type/Catalog/Pages 9 0 R>>\nkeine Struktur\n"
+
+
+def beleg(text: str) -> bytes:
+    """Gültiges, harmloses einseitiges PDF mit einem erfundenen Text; verschiedene Texte ergeben verschiedene Dateien."""
+    sicher = text.encode("latin-1", "replace").replace(b"\\", b"\\\\").replace(b"(", b"\\(").replace(b")", b"\\)")
+    inhalt = b"BT /F1 12 Tf 72 720 Td (" + sicher + b") Tj ET"
+    seite = b"<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>"
+    return klassisch([SEITE[0], SEITE[1], seite, b"<</Length %d>>stream\n" % len(inhalt) + inhalt + b"\nendstream",
+                      b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>"])

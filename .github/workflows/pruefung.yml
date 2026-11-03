@@ -35,3 +35,43 @@ jobs:
             -e PORTAL_HOSTS=testserver \
             -v "$PWD/betrieb/container_smoke.py:/pruefung/smoke.py:ro" \
             zahlenwerk-portal:pruefung python /pruefung/smoke.py
+  postgres:
+    # Wegwerf-PostgreSQL nur für diesen Lauf (ohne Kennwort, nur im Job-Netz). Keine echten Daten.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pruefung
+          POSTGRES_DB: pruefung
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pruefung" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PORTAL_TEST_POSTGRES: "1"
+      PORTAL_TEST_PG_HOST: 127.0.0.1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils libpango-1.0-0 libpangoft2-1.0-0 fonts-dejavu-core
+      - run: pip install -e ".[test,betrieb]"
+      - name: Gesamte Testreihe gegen PostgreSQL (Trigger, Migrationen)
+        run: python -m pytest -q
+  browser:
+    # Smartphone-Erfassung im echten Browser (Chromium), nur Testserver und erfundene Daten.
+    runs-on: ubuntu-latest
+    env:
+      PORTAL_BROWSERTESTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils libpango-1.0-0 libpangoft2-1.0-0 fonts-dejavu-core
+      - run: pip install -e ".[test,browser]"
+      - run: python -m playwright install --with-deps chromium
+      - name: Browserprüfung W7 und Layout 320/375/390 px
+        run: python -m pytest -q tests/test_browser_belegerfassung.py
