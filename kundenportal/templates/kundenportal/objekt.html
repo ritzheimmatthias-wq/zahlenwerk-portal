@@ -1,0 +1,27 @@
+{% extends "kundenportal/base.html" %}
+{% block titel %}{{ o.bezeichnung }}{% endblock %}
+{% block inhalt %}
+<div><a class="meta" href="/">‹ Zurück zur Übersicht</a><h1>{{ o.bezeichnung }}</h1></div>
+<div class="grid2">
+  <div class="card"><h2>Aufträge</h2>
+    <ul class="list">
+    {% for a, fertig, gesamt in auftraege %}
+      <li><a href="{% url 'auftrag' a.pk %}"><strong>{{ a }}</strong></a><span class="pill s-{{ a.status }}">{{ a.get_status_display }}</span>
+      <span class="sub meta">Checkliste: {{ fertig }} von {{ gesamt }} eingereicht</span></li>
+    {% empty %}<li><span class="meta">Noch kein Auftrag.</span></li>{% endfor %}
+    </ul>
+  </div>
+  <div class="card"><h2>Steckbrief</h2>
+    <div class="tbl-wrap"><table><tbody>
+      <tr><th>Anschrift</th><td>{{ o.anschrift }}{% if o.ort %}, {{ o.ort }}{% endif %}</td></tr>
+      <tr><th>Objektart</th><td>{{ o.get_objektart_display }}</td></tr>
+      {% if o.baujahr %}<tr><th>Baujahr</th><td>{{ o.baujahr }}</td></tr>{% endif %}
+      <tr><th>Wirtschaftsjahr</th><td>{{ o.wirtschaftsjahr }}</td></tr>
+      {% if o.heizung %}<tr><th>Heizung</th><td>{{ o.heizung }}</td></tr>{% endif %}
+      <tr><th>Einheiten</th><td class="num">{{ o.einheiten.count }}</td></tr>
+      <tr><th>Konten</th><td>{% for k in o.konten.all %}{{ k.get_art_display }} …{{ k.iban|slice:"-4:" }}{% if not forloop.last %}, {% endif %}{% empty %}–{% endfor %}</td></tr>
+    </tbody></table></div>
+    <p class="meta">Fehlt etwas oder stimmt eine Angabe nicht? Schreiben Sie uns kurz, wir passen sie an.</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "kundenportal/base.html" %}
+{% block titel %}Dokumentvorlagen{% endblock %}
+{% block inhalt %}
+<div><a class="meta" href="/">‹ Zurück zur Übersicht</a>
+  <h1>Dokumentvorlagen für Vermieter</h1>
+  <p class="lead">Neun ausfüllbare Blankomuster von Zahlenwerk für die Vermietung von Wohnraum in Deutschland. Die Muster sind keine Beschlussvorlagen für Eigentümergemeinschaften (WEG).</p>
+</div>
+{% if vorschau %}<div class="note" role="status"><strong>Vorschau.</strong> Diese Seite sehen derzeit nur Zahlenwerk-Konten. Kunden sehen die Bibliothek erst nach ausdrücklicher Freigabe.</div>{% endif %}
+<section class="card" aria-labelledby="vorab">
+  <h2 id="vorab">Bevor Sie eine Vorlage verwenden</h2>
+  <ul class="hinweise">
+    <li>Fachlich geprüfter Entwurf, Prüfstand {{ stand }}, Version 1.0. Keine Einzelfallprüfung und keine anwaltliche Freigabe. Vor Verwendung Vertragsdaten, Berechtigung und Einzelfall prüfen.</li>
+    <li>Die PDF-Felder sind ausfüllbar, rechnen aber nicht automatisch. Beträge und Daten bitte selbst ermitteln und kontrollieren.</li>
+    <li>Eingaben speichern, Datei erneut öffnen und vor Versand auf Vollständigkeit prüfen.</li>
+    <li>Eine eingetippte Namensangabe ersetzt keine gesetzlich vorgeschriebene Unterschrift.</li>
+    <li>Die letzte Seite jeder Vorlage ist eine Anwendungshilfe und wird nicht mit dem Schreiben weitergegeben. Dafür gibt es je Vorlage eine Fassung ohne diese Seite.</li>
+    <li>Das Portal versendet nichts. Inhalt, Beträge, Empfänger und Versand prüfen und erledigen Sie selbst.</li>
+    <li>Die Formularfelder sind beschriftet, die PDFs sind aber nicht als barrierefrei nach PDF/UA zertifiziert.</li>
+  </ul>
+</section>
+{% for v in vorlagen %}
+<section class="card" id="vorlage-{{ v.id }}" aria-labelledby="titel-{{ v.id }}">
+  <div class="row sp"><h2 id="titel-{{ v.id }}">{{ v.id }} · {{ v.titel }}</h2>
+    <span class="row"><span class="pill p-open">Wohnraumvermietung</span><span class="pill p-info">Prüfstand {{ stand }}</span></span></div>
+  <dl class="angaben">
+    <dt>Zweck</dt><dd>{{ v.zweck }}</dd>
+    <dt>Einsatzbereich</dt><dd>{{ v.einsatz }}</dd>
+  </dl>
+  {% if v.phasen %}
+  <ol class="phasen">{% for titel, text in v.phasen %}<li><strong>{{ titel }}</strong><span class="meta">{{ text }}</span></li>{% endfor %}</ol>
+  {% endif %}
+  <div><h3>Kurz zur Anwendung</h3>
+    <ul class="hinweise">{% for h in v.hinweise %}<li>{{ h }}</li>{% endfor %}</ul></div>
+  <p class="note">{{ v.weitergeben }}</p>
+  {% if v.id == "09" %}<p class="note fehler">Ausgefüllte Selbstauskünfte von Mietinteressenten bitte nicht im Portal hochladen. Das Portal ist für Bewerberdaten nicht eingerichtet.</p>{% endif %}
+  <ul class="list downloads">
+  {% for f in v.fassungen %}
+    <li><span><strong>{{ f.titel }}</strong><span class="sub meta">{{ f.beschreibung }}</span></span>
+      <a class="btn ghost small" href="{% url 'vorlage_datei' v.id f.schluessel %}" download>PDF herunterladen<span class="sr"> – {{ v.titel }}, {{ f.titel }}</span></a></li>
+  {% endfor %}
+    <li><span><strong>Textfassung</strong><span class="sub meta">Bearbeitbare Markdown-Fassung desselben Musters.</span></span>
+      <a class="btn ghost small" href="{% url 'vorlage_datei' v.id 'markdown' %}" download>Text herunterladen<span class="sr"> – {{ v.titel }}</span></a></li>
+  </ul>
+  <p class="meta">{{ v.seiten }} Seiten · {{ v.felder|length }} Formularfelder · SHA-256 {{ v.sha256|slice:":12" }}…</p>
+</section>
+{% endfor %}
+{% endblock %}

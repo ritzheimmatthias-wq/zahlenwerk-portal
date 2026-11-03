@@ -1,0 +1,15 @@
+{% extends "kundenportal/base.html" %}
+{% block titel %}Anmelden{% endblock %}
+{% block inhalt %}
+<div class="card login">
+  <p class="meta"><b>1 Zugangsdaten</b> › 2 Bestätigungscode</p>
+  <h1>Anmelden</h1>
+  <p class="lead">Ihren Zugang haben Sie per Einladungslink erhalten. Passwörter verschicken wir nie per E-Mail.</p>
+  <form method="post" class="card flat">{% csrf_token %}
+    {{ form.non_field_errors }}
+    <label for="{{ form.email.id_for_label }}">{{ form.email.label }}{{ form.email }}</label>{{ form.email.errors }}
+    <label for="{{ form.passwort.id_for_label }}">{{ form.passwort.label }}{{ form.passwort }}</label>{{ form.passwort.errors }}
+    <button class="btn" type="submit">Weiter</button>
+  </form>
+</div>
+{% endblock %}
