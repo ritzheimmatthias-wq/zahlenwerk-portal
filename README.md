@@ -81,6 +81,12 @@ Jeder Lauf liefert Ergebnisdaten (JSON), einen internen Kontrollbericht, PDF-Ent
 und optional einen unveränderlichen, versionierten Berechnungsstand mit Audit-Log.
 Nichts wird versendet.
 
+Das Audit-Log ist verkettet (jeder Eintrag verweist auf seinen Vorgänger); das Kettenende
+`audit.kopf.json` hält Anzahl und Prüfsumme des letzten Eintrags. Freigaben prüfen zusätzlich die
+vollständige Statusfolge (entwurf → fachlich_geprueft → eigentuemer_freigegeben → endgueltig, ohne
+Sprünge, Doppelungen oder Rückschritte, jeweils mit Person). Grenze: Wer Log und Kettenende gemeinsam
+konsistent neu schreibt, wird allein dadurch nicht erkannt; dagegen helfen eingeschränkte Schreibrechte.
+
 ```
 python -m betriebskosten tests/beispiel/betriebskosten_pilot.toml --ausgabe ausgabe/ --ablage ablage/ --person "Name"
 ```
@@ -99,10 +105,12 @@ Gleiche Eingabe und gleiche Regelversion ergeben dasselbe Ergebnis und byte-glei
 
 Vor jeder Freigabe, Wiederverwendung und Reporterstellung prüft `Ablage.pruefen` den Stand:
 Prüfsummen werden aus dem gespeicherten Inhalt neu gebildet, Warnungszähler nachgezählt und
-mit dem verketteten Audit-Log abgeglichen. Ein beschädigter Stand oder ein beschädigtes
-Audit-Log sperrt alle weiteren Schritte. Grenze: Wer Ablage und Audit-Log gemeinsam und
-konsistent neu schreiben darf, wird so allein nicht erkannt; dafür braucht es eingeschränkte
-Schreibrechte auf dem Server.
+mit dem verketteten Audit-Log samt Kettenende abgeglichen; außerdem wird die vollständige
+Statusfolge geprüft (keine übersprungenen, doppelten oder rückwärts gerichteten Stufen). Ein
+beschädigter Stand, ein beschädigtes Audit-Log oder ein unzulässiger Statusverlauf sperrt alle
+weiteren Schritte, auch Reporterstellung und Download. Grenze: Wer Ablage, Audit-Log und Kettenende
+gemeinsam und konsistent neu schreiben darf, wird so allein nicht erkannt; dafür braucht es
+eingeschränkte Schreibrechte auf dem Server.
 
 ## Jahresreports (Entwurf)
 

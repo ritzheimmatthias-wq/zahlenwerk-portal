@@ -14,7 +14,7 @@ import hashlib
 import json
 from datetime import datetime
 
-from .version import Ablage, Freigabefehler, kanonisch
+from .version import Ablage, Freigabefehler, kanonisch, statusfolge
 
 REPORT_STATUS = ("entwurf", "fachlich_geprueft", "freigegeben")
 REPORTARTEN = ("vorauszahlung", "kostenverlauf")
@@ -61,8 +61,10 @@ class ReportAblage:
     def pruefen(self, art: str, nummer: int) -> dict:
         """Liest einen Snapshot und prüft Inhalt, Kopfdaten und Audit-Log. Wirft Freigabefehler.
 
+        Prüft auch die vollständige Statusfolge (entwurf → fachlich_geprueft → freigegeben) und über das
+        Kettenende den letzten Audit-Eintrag.
         Schutzgrenze: Prüfsummen und Audit-Kette erkennen nachträgliche Änderungen, aber nicht, wenn jemand
-        mit Schreibrecht auf die Ablage Snapshot und gesamtes Audit-Log konsistent neu schreibt.
+        mit Schreibrecht auf die Ablage Snapshot, gesamtes Audit-Log und Kettenende konsistent neu schreibt.
         """
         if nummer not in self.nummern(art):
             raise Freigabefehler(f"Report {art} Nr. {nummer} gibt es nicht")
@@ -85,6 +87,8 @@ class ReportAblage:
                     if e.get("ereignis") == "report_erstellt" and e.get("report") == art and e.get("nummer") == nummer]
         if len(erstellt) != 1 or erstellt[0].get("inhalt_hash") != snapshot["inhalt_hash"]:
             fehler.append("Snapshot weicht vom Audit-Log ab")
+        _, folgefehler = statusfolge(self._statusereignisse(art, nummer), REPORT_STATUS)
+        fehler.extend(folgefehler)
         if fehler:
             raise Freigabefehler(f"Report {art} Nr. {nummer} ist nicht unverfälscht ({'; '.join(fehler)}). Gesperrt.")
         return snapshot
@@ -96,10 +100,19 @@ class ReportAblage:
             raise Freigabefehler(f"Report {art} Nr. {nummer} ist nicht freigegeben")
         return snapshot
 
+    def _statusereignisse(self, art: str, nummer: int) -> list[dict]:
+        return [e for e in self.ablage.audit()
+                if e.get("ereignis") == "report_status" and e.get("report") == art and e.get("nummer") == nummer]
+
     def status(self, art: str, nummer: int) -> str:
-        st = [e["status"] for e in self.ablage.audit()
-              if e["ereignis"] == "report_status" and e["report"] == art and e["nummer"] == nummer]
-        return st[-1] if st else ""
+        """Aktueller Status aus der vollständig geprüften Folge. Unzulässige Folge → Freigabefehler."""
+        ereignisse = self._statusereignisse(art, nummer)
+        if not ereignisse:
+            return ""
+        status, fehler = statusfolge(ereignisse, REPORT_STATUS)
+        if fehler:
+            raise Freigabefehler(f"Report {art} Nr. {nummer}: {'; '.join(fehler)}. Gesperrt.")
+        return status
 
     def status_setzen(self, art: str, nummer: int, neu: str, *, person: str, zeit: datetime, notiz: str = "") -> None:
         if neu not in REPORT_STATUS:
