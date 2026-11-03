@@ -21,16 +21,27 @@ from .vorauszahlung import Reportfehler, analysiere
 
 
 def _endgueltig(ablage: Ablage, version: int | None) -> tuple[dict, str]:
-    if version is None:
-        fertig = [v for v in ablage.versionen() if ablage.status(v) == "endgueltig"]
-        if not fertig:
-            raise Reportfehler(f"{ablage.pfad}: keine endgültige Abrechnungsversion vorhanden.")
-        version = fertig[-1]
+    """Geprüfter, endgültig freigegebener Stand. Prüft Inhalt, Audit-Kette mit Kettenende und die
+    vollständige Statusfolge; ein unzulässiger Verlauf (z. B. übersprungene Stufen) ergibt keinen Report."""
     try:
-        stand = ablage.pruefen(version)  # beschädigter Stand oder Audit-Log: kein Report
+        if version is None:
+            fertig = []
+            for v in ablage.versionen():
+                try:
+                    if ablage.status(v) == "endgueltig":
+                        fertig.append(v)
+                except Freigabefehler:
+                    continue  # unzulässiger Verlauf zählt nie als endgültig
+            if not fertig:
+                raise Reportfehler(f"{ablage.pfad}: keine endgültige Abrechnungsversion vorhanden.")
+            version = fertig[-1]
+        stand = ablage.pruefen(version)  # beschädigter Stand, Audit-Log oder Statusverlauf: kein Report
+        status = ablage.status(version)
     except Freigabefehler as f:
         raise Reportfehler(str(f)) from None
-    return stand, ablage.status(version)
+    if status != "endgueltig":
+        raise Reportfehler(f"Version {version} ist nicht endgültig freigegeben (Status {status or 'unbekannt'}).")
+    return stand, status
 
 
 def main(argv: list[str] | None = None) -> int:

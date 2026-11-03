@@ -646,3 +646,87 @@ def test_kostenverlauf_pdf_byte_identisch(tmp_path):
         pdfs.append((snap["inhalt_hash"], report_pdf(snap, "freigegeben")))
     assert pdfs[0][0] == pdfs[1][0]
     assert pdfs[0][1] == pdfs[1][1]
+
+
+# --- N1 (Nachprüfung 02.11.2026): Freigabestufen über den letzten Audit-Eintrag ------------
+
+def _letzte_zeile(ablage, alt, neu):
+    zeilen = ablage.audit_pfad.read_text().splitlines()
+    assert alt in zeilen[-1]
+    zeilen[-1] = zeilen[-1].replace(alt, neu)
+    ablage.audit_pfad.write_text("\n".join(zeilen) + "\n")
+
+
+def test_n1_gegenprobe_1_entwurf_als_endgueltig_ergibt_keinen_report(tmp_path):
+    from betriebskosten.jahresreports import _endgueltig, main
+
+    ablage = Ablage(tmp_path / "ablage")
+    ablage.speichern(berechne(aus_dict(fall_vz())), zeit=ZEIT, person="pruefer")
+    assert [e["ereignis"] for e in ablage.audit()] == ["berechnet", "status"]
+    _letzte_zeile(ablage, '"status":"entwurf"', '"status":"endgueltig"')  # kein Hash neu gebildet
+    assert not ablage.audit_unverfaelscht()
+    with pytest.raises(Reportfehler):
+        _endgueltig(ablage, None)
+    with pytest.raises(Reportfehler):
+        _endgueltig(ablage, 1)
+    assert main(["vorauszahlung", "--ablage", str(ablage.pfad), "--ausgabe", str(tmp_path / "aus")]) == 1
+    assert not (ablage.pfad / "reports" / "vorauszahlung_r001.json").exists()
+
+
+def test_n1_konsistent_verketteter_sprung_auf_endgueltig_ergibt_keinen_report(tmp_path):
+    from betriebskosten.jahresreports import _endgueltig, main
+
+    ablage = Ablage(tmp_path / "ablage")
+    ablage.speichern(berechne(aus_dict(fall_vz())), zeit=ZEIT, person="pruefer")
+    ablage._audit({"ereignis": "status", "version": 1, "status": "endgueltig", "person": "pruefer", "zeit": ZEIT.isoformat()})
+    assert ablage.audit_unverfaelscht()  # Kette und Kettenende korrekt, aber Stufen übersprungen
+    with pytest.raises(Reportfehler, match="unzulässig|keine endgültige"):
+        _endgueltig(ablage, None)
+    with pytest.raises(Reportfehler, match="unzulässig"):
+        _endgueltig(ablage, 1)
+    assert main(["vorauszahlung", "--ablage", str(ablage.pfad), "--ausgabe", str(tmp_path / "aus")]) == 1
+
+
+def test_n1_gegenprobe_2_report_entwurf_als_freigegeben_kein_download(tmp_path):
+    ablage, stand, status = endgueltig(tmp_path, fall_vz())
+    ra = ReportAblage(ablage)
+    ra.speichern(analysiere(stand, status, STANDARD), zeit=ZEIT, person="pruefer")
+    assert ra.status("vorauszahlung", 1) == "entwurf"
+    _letzte_zeile(ablage, '"status":"entwurf"', '"status":"freigegeben"')
+    assert not ablage.audit_unverfaelscht()
+    assert not ra.download_erlaubt("vorauszahlung", 1)
+    with pytest.raises(Freigabefehler):
+        ra.freigegeben("vorauszahlung", 1)
+    with pytest.raises(Freigabefehler):
+        ra.status_setzen("vorauszahlung", 1, "fachlich_geprueft", person="pruefer", zeit=ZEIT)
+
+
+@pytest.mark.parametrize("folge", [
+    ["freigegeben"],                                   # Prüfung übersprungen
+    ["fachlich_geprueft", "fachlich_geprueft"],        # doppelt
+    ["fachlich_geprueft", "entwurf"],                  # rückwärts
+    ["endgueltig"],                                    # unbekannte Stufe
+])
+def test_n1_konsistent_verkettete_unzulaessige_reportfolgen_sperren(tmp_path, folge):
+    ablage, stand, status = endgueltig(tmp_path, fall_vz())
+    ra = ReportAblage(ablage)
+    ra.speichern(analysiere(stand, status, STANDARD), zeit=ZEIT, person="pruefer")
+    for s in folge:
+        ablage._audit({"ereignis": "report_status", "report": "vorauszahlung", "nummer": 1, "status": s,
+                       "person": "pruefer", "zeit": ZEIT.isoformat()})
+    assert ablage.audit_unverfaelscht()
+    assert not ra.download_erlaubt("vorauszahlung", 1)
+    with pytest.raises(Freigabefehler, match="unzulässig"):
+        ra.pruefen("vorauszahlung", 1)
+
+
+def test_n1_normale_report_freigabe_bleibt_moeglich(tmp_path):
+    from betriebskosten.jahresreports import main
+
+    ablage, _, _ = endgueltig(tmp_path, fall_vz())
+    assert main(["vorauszahlung", "--ablage", str(ablage.pfad), "--ausgabe", str(tmp_path / "aus"), "--person", "pruefer"]) == 0
+    ra = ReportAblage(ablage)
+    assert not ra.download_erlaubt("vorauszahlung", 1)
+    for s in ("fachlich_geprueft", "freigegeben"):
+        ra.status_setzen("vorauszahlung", 1, s, person="pruefer", zeit=ZEIT)
+    assert ra.download_erlaubt("vorauszahlung", 1) and ablage.audit_unverfaelscht()

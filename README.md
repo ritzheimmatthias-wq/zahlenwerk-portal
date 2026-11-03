@@ -57,10 +57,12 @@ Gleiche Eingabe und gleiche Regelversion ergeben dasselbe Ergebnis und byte-glei
 
 Vor jeder Freigabe, Wiederverwendung und Reporterstellung prüft `Ablage.pruefen` den Stand:
 Prüfsummen werden aus dem gespeicherten Inhalt neu gebildet, Warnungszähler nachgezählt und
-mit dem verketteten Audit-Log abgeglichen. Ein beschädigter Stand oder ein beschädigtes
-Audit-Log sperrt alle weiteren Schritte. Grenze: Wer Ablage und Audit-Log gemeinsam und
-konsistent neu schreiben darf, wird so allein nicht erkannt; dafür braucht es eingeschränkte
-Schreibrechte auf dem Server.
+mit dem verketteten Audit-Log samt Kettenende abgeglichen; außerdem wird die vollständige
+Statusfolge geprüft (keine übersprungenen, doppelten oder rückwärts gerichteten Stufen). Ein
+beschädigter Stand, ein beschädigtes Audit-Log oder ein unzulässiger Statusverlauf sperrt alle
+weiteren Schritte, auch Reporterstellung und Download. Grenze: Wer Ablage, Audit-Log und Kettenende
+gemeinsam und konsistent neu schreiben darf, wird so allein nicht erkannt; dafür braucht es
+eingeschränkte Schreibrechte auf dem Server.
 
 ## Jahresreports (Entwurf)
 
