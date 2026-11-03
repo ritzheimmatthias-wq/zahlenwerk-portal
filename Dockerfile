@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libpango-1.0-0 
 WORKDIR /app
 COPY pyproject.toml README.md manage.py ./
 COPY auswertung ./auswertung
+COPY betriebskosten ./betriebskosten
 COPY portal ./portal
 COPY kundenportal ./kundenportal
 RUN pip install --no-cache-dir ".[portal,pdf,betrieb]" \

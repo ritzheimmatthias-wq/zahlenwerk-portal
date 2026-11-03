@@ -53,3 +53,28 @@ speichert und versendet nichts.
 Zahlenwerk-Konten sehen die Bibliothek immer. Kunden erst, wenn
 `PORTAL_VORLAGEN_FUER_KUNDEN=1` gesetzt ist, und das nur nach ausdrücklicher
 Freigabe durch Matthias.
+
+## Betriebskostenabrechnung (Generator, Entwurf)
+
+`betriebskosten/` berechnet aus geprüften Stammdaten, Belegen, Verteilerschlüsseln,
+Vorauszahlungen und Messdienstwerten je Mietverhältnis eine Abrechnung:
+Wohnraum mit Bruttodarstellung, Gewerbe je nach bestätigter Konfiguration brutto
+oder netto + Umsatzsteuer + brutto. Ungeklärte Steuerfälle sperren die Abrechnung.
+Jeder Lauf liefert Ergebnisdaten (JSON), einen internen Kontrollbericht, PDF-Entwürfe
+und optional einen unveränderlichen, versionierten Berechnungsstand mit Audit-Log.
+Nichts wird versendet.
+
+Das Audit-Log ist verkettet (jeder Eintrag verweist auf seinen Vorgänger); das Kettenende
+`audit.kopf.json` hält Anzahl und Prüfsumme des letzten Eintrags. Freigaben prüfen zusätzlich die
+vollständige Statusfolge (entwurf → fachlich_geprueft → eigentuemer_freigegeben → endgueltig, ohne
+Sprünge, Doppelungen oder Rückschritte, jeweils mit Person). Vor jedem Schreiben (neue oder identische
+Berechnung, neuer Report, Statuswechsel) wird die bestehende Kette samt bisherigem Kettenende geprüft;
+ein beschädigter Verlauf oder eine vorhandene Ablage ohne Kettenende wird nicht neu verankert, sondern
+gesperrt. Nur eine leere Ablage wird neu angelegt. Grenze: Wer Log und Kettenende gemeinsam
+konsistent neu schreibt, wird allein dadurch nicht erkannt; dagegen helfen eingeschränkte Schreibrechte.
+
+```
+python -m betriebskosten tests/beispiel/betriebskosten_pilot.toml --ausgabe ausgabe/ --ablage ablage/ --person "Name"
+```
+
+Das Pilotobjekt in `tests/beispiel/betriebskosten_pilot.toml` ist vollständig erfunden.
