@@ -35,6 +35,8 @@ Vault-Ordner `Projekte/Server und Kundenportal`.
 - `auswertung/`: Auswertungskern (Stufe 1). Import von CAMT.052/053 und CSV,
   Zuordnung über Regeln, erste Einschätzung je Objekt und Jahr.
 - `tests/`: Tests mit erfundenen Beispieldaten in `tests/beispiel/`.
+- `portal/`, `kundenportal/`: Kundenportal (Django). Seiten unter `kundenportal/templates/`.
+- `betrieb/`: Anleitung und Compose-Beispiel für den KVM-2, ohne Geheimnisse.
 - `docs/`: Entscheidungen und Abhängigkeiten.
 
 ## Befehle
@@ -43,5 +45,6 @@ Python 3.12 oder neuer; für PDF-Auszüge `pdftotext` (Paket poppler-utils).
 
 - Abhängigkeiten: `pip install -e ".[test]"`
 - Tests: `python -m pytest`
+- Portal lokal: `PORTAL_DEBUG=1 python manage.py runserver` (vorher `migrate`).
 - Erste Einschätzung: `python -m auswertung --stammdaten <datei.toml> <Auszüge ...>`
   (Ausgabe als Markdown auf die Konsole; mit `--json` als JSON).

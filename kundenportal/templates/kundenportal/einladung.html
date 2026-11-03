@@ -1,0 +1,14 @@
+{% extends "kundenportal/base.html" %}
+{% block titel %}Passwort vergeben{% endblock %}
+{% block inhalt %}
+<div class="card login">
+  <h1>Willkommen im Kundenportal</h1>
+  <p class="lead">Vergeben Sie ein Passwort für <b>{{ email }}</b>. Mindestens 12 Zeichen, nicht zu einfach. Bei jeder Anmeldung senden wir Ihnen zusätzlich einen Code per E-Mail.</p>
+  <form method="post" class="card flat">{% csrf_token %}
+    {{ form.non_field_errors }}
+    <label for="{{ form.new_password1.id_for_label }}">Passwort{{ form.new_password1 }}</label>{{ form.new_password1.errors }}
+    <label for="{{ form.new_password2.id_for_label }}">Passwort wiederholen{{ form.new_password2 }}</label>{{ form.new_password2.errors }}
+    <button class="btn" type="submit">Passwort speichern</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "kundenportal/base.html" %}
+{% block titel %}Übersicht{% endblock %}
+{% block inhalt %}
+<div><h1>Guten Tag</h1><p class="lead">Hier sehen Sie Ihre Objekte, den Stand Ihrer Aufträge und Dokumente von Zahlenwerk.</p></div>
+<div class="grid2">
+{% for k in kacheln %}
+  <a class="tile" href="{% url 'objekt' k.objekt.pk %}">
+    <div class="row sp"><h2>{{ k.objekt.bezeichnung }}</h2>
+      {% if k.nachreichen %}<span class="pill p-warn">{{ k.nachreichen }} Nachreichung{{ k.nachreichen|pluralize:"en" }}</span>{% endif %}
+      {% if k.neu %}<span class="pill p-info">{{ k.neu }} neues Dokument{{ k.neu|pluralize:"e" }}</span>{% endif %}
+    </div>
+    <div class="meta">{{ k.objekt.anschrift }}{% if k.objekt.ort %}, {{ k.objekt.ort }}{% endif %}</div>
+    {% for a, fertig, gesamt in k.auftraege %}
+      <div><div class="row sp meta"><span>{{ a }}</span><span class="num">{% if a.status == "abgeschlossen" %}abgeschlossen{% else %}{{ fertig }} von {{ gesamt }}{% endif %}</span></div>
+      <progress max="{{ gesamt|default:1 }}" value="{{ fertig }}">{{ fertig }} von {{ gesamt }}</progress></div>
+    {% empty %}<span class="meta">Noch kein Auftrag.</span>{% endfor %}
+  </a>
+{% empty %}
+  <div class="card"><p class="lead">Für Ihren Zugang ist noch kein Objekt freigegeben. Bitte wenden Sie sich an Zahlenwerk.</p></div>
+{% endfor %}
+</div>
+{% endblock %}
