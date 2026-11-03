@@ -36,6 +36,9 @@ Vault-Ordner `Projekte/Server und Kundenportal`.
   Zuordnung über Regeln, erste Einschätzung je Objekt und Jahr.
 - `tests/`: Tests mit erfundenen Beispieldaten in `tests/beispiel/`.
 - `portal/`, `kundenportal/`: Kundenportal (Django). Seiten unter `kundenportal/templates/`.
+- `kundenportal/dokumentvorlagen_dateien/<Prüfstand>/`: Dokumentvorlagen unverändert aus dem
+  Vault (PDF, Markdown, `manifest.json`). Nie bearbeiten oder neu formulieren; neue Fassungen nur
+  als neuer Prüfstand mit Manifest. Ausgefüllte Vorlagen gehören nie ins Repository.
 - `betrieb/`: Anleitung und Compose-Beispiel für den KVM-2, ohne Geheimnisse.
 - `docs/`: Entscheidungen und Abhängigkeiten.
 

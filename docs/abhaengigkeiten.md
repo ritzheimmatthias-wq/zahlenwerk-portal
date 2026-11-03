@@ -14,9 +14,9 @@
 | argon2-cffi | Passwort-Hashes (Argon2) | MIT | 01.11.2026 |
 | cryptography | AES-256-GCM-Verschlüsselung der Dateien | Apache-2.0 oder BSD-3-Clause | 01.11.2026 |
 | whitenoise | Auslieferung der eigenen CSS-Datei | MIT | 01.11.2026 |
-| pypdf | Strukturprüfung hochgeladener PDFs auf aktive Inhalte (nur lesen, nichts ausführen) | BSD-3-Clause | 02.11.2026 |
 | gunicorn (nur Betrieb) | Anwendungsserver | MIT | 01.11.2026 |
 | psycopg (nur Betrieb) | PostgreSQL-Anbindung | LGPL-3.0, unverändert als Bibliothek | 01.11.2026 |
+| pypdf (`[portal]`) | Seitenauszüge der Dokumentvorlagen, Strukturprüfung hochgeladener PDFs auf aktive Inhalte (nur lesen), PDF-Prüfungen in Tests | BSD-3-Clause | 01.11.2026 |
 | pytest-django (nur Tests) | Tests des Portals | BSD-3-Clause | 01.11.2026 |
 | ClamAV (eigener Container) | Virenscan, nur über das Netzprotokoll angesprochen | GPL-2.0, eigenes Programm, kein Code übernommen | 01.11.2026 |
 | PostgreSQL (eigener Container) | Datenbank | PostgreSQL-Lizenz (BSD-ähnlich) | 01.11.2026 |

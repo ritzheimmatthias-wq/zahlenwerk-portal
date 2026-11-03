@@ -20,7 +20,7 @@ packages = ["auswertung", "portal", "kundenportal"]
 include-package-data = true
 
 [tool.setuptools.package-data]
-kundenportal = ["templates/**/*.html", "static/**/*", "migrations/*.py", "management/**/*.py"]
+kundenportal = ["templates/**/*.html", "static/**/*", "dokumentvorlagen_dateien/**/*", "migrations/*.py", "management/**/*.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

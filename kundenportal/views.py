@@ -14,7 +14,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from . import mails, tresor, virenscan
+from . import dokumentvorlagen, mails, tresor, virenscan
 from .dateipruefung import Abgelehnt, ERLAUBT_TEXT, pruefe_datei, sicherer_name
 from .forms import (
     AnlegenForm, AnmeldeForm, CodeForm, EinheitFormSet, ErgebnisForm, KontoFormSet, PasswortForm, PunktForm, UploadForm,
@@ -254,6 +254,45 @@ def _url_name(name: str) -> str:
     from urllib.parse import quote
 
     return quote(name, safe="")
+
+
+# --- Dokumentvorlagen ------------------------------------------------------------
+
+def _vorlagen_sichtbar(user) -> bool:
+    return user.is_staff or settings.VORLAGEN_FUER_KUNDEN
+
+
+def vorlagen(request):
+    if not _vorlagen_sichtbar(request.user):
+        raise Http404
+    return render(request, "kundenportal/vorlagen.html", {
+        "vorlagen": dokumentvorlagen.alle(), "stand": "01.11.2026",
+        "vorschau": not settings.VORLAGEN_FUER_KUNDEN,
+    })
+
+
+def vorlage_datei(request, vid: str, art: str):
+    """Blankovorlage ausliefern: nur nach Anmeldung, nur geprüfter Dateistand, ohne Personendaten."""
+    if not _vorlagen_sichtbar(request.user):
+        raise Http404
+    v = dokumentvorlagen.finde(vid)
+    if v is None:
+        raise Http404
+    try:
+        if art == "markdown":
+            inhalt, name, typ = dokumentvorlagen.markdown(v), v.markdown, "text/markdown; charset=utf-8"
+        else:
+            ergebnis = dokumentvorlagen.fassung(v, art)
+            if ergebnis is None:
+                raise Http404
+            (inhalt, name), typ = ergebnis, "application/pdf"
+    except dokumentvorlagen.Pruefsummenfehler:
+        protokoll("vorlage_pruefsumme_falsch", request.user, f"vorlage:{v.id}")
+        raise Http404 from None
+    protokoll("vorlage_download", request.user, f"vorlage:{v.id}", art)
+    antwort = HttpResponse(inhalt, content_type=typ)
+    antwort["Content-Disposition"] = f"attachment; filename*=UTF-8''{_url_name(name)}"
+    return antwort
 
 
 # --- Interner Bereich -------------------------------------------------------------
