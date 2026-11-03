@@ -41,6 +41,11 @@ Vault-Ordner `Projekte/Server und Kundenportal`.
   Alle Zahlen deterministisch im Code; kein Sprachmodell berechnet oder verändert Beträge,
   Verteilungen, Umsatzsteuer, Rundungen, Salden, Prozentwerte oder Empfehlungen.
 - `tests/`: Tests mit erfundenen Beispieldaten in `tests/beispiel/`.
+- `portal/`, `kundenportal/`: Kundenportal (Django). Seiten unter `kundenportal/templates/`.
+- `kundenportal/dokumentvorlagen_dateien/<Prüfstand>/`: Dokumentvorlagen unverändert aus dem
+  Vault (PDF, Markdown, `manifest.json`). Nie bearbeiten oder neu formulieren; neue Fassungen nur
+  als neuer Prüfstand mit Manifest. Ausgefüllte Vorlagen gehören nie ins Repository.
+- `betrieb/`: Anleitung und Compose-Beispiel für den KVM-2, ohne Geheimnisse.
 - `docs/`: Entscheidungen und Abhängigkeiten.
 
 ## Befehle
@@ -49,6 +54,7 @@ Python 3.12 oder neuer; für PDF-Auszüge `pdftotext` (Paket poppler-utils).
 
 - Abhängigkeiten: `pip install -e ".[test]"`
 - Tests: `python -m pytest`
+- Portal lokal: `PORTAL_DEBUG=1 python manage.py runserver` (vorher `migrate`).
 - Erste Einschätzung: `python -m auswertung --stammdaten <datei.toml> <Auszüge ...>`
   (Ausgabe als Markdown auf die Konsole; mit `--json` als JSON).
 - Betriebskostenabrechnung: `python -m betriebskosten <daten.toml> --ausgabe <ordner> [--ablage <ordner> --person <name>]`

@@ -1,0 +1,15 @@
+{% extends "kundenportal/base.html" %}
+{% block titel %}Bestätigungscode{% endblock %}
+{% block inhalt %}
+<div class="card login">
+  <p class="meta">1 Zugangsdaten › <b>2 Bestätigungscode</b></p>
+  <h1>Bestätigungscode</h1>
+  <p class="lead">Wir haben Ihnen einen sechsstelligen Code an Ihre E-Mail-Adresse geschickt. Er ist 10 Minuten gültig.</p>
+  <form method="post" class="card flat">{% csrf_token %}
+    <label for="{{ form.code.id_for_label }}">{{ form.code.label }}{{ form.code }}</label>{{ form.code.errors }}
+    <button class="btn" type="submit">Anmelden</button>
+  </form>
+  <form method="post" action="{% url 'anmelden_code_neu' %}">{% csrf_token %}<button class="btn ghost small" type="submit">Neuen Code anfordern</button></form>
+  <p class="meta">Keinen Code erhalten? Prüfen Sie den Spam-Ordner. Nach 30 Minuten ohne Aktivität werden Sie abgemeldet.</p>
+</div>
+{% endblock %}
