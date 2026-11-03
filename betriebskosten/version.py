@@ -13,6 +13,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import os
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -87,11 +88,33 @@ def stand_fehler(stand: dict) -> list[str]:
     return fehler
 
 
+def statusfolge(ereignisse: list[dict], erlaubt: tuple[str, ...]) -> tuple[str, list[str]]:
+    """Prüft die vollständige Statusfolge eines Stands oder Reports.
+
+    Zulässig ist nur genau die Folge erlaubt[0], erlaubt[1], … ohne ausgelassene, doppelte,
+    rückwärts gerichtete oder unbekannte Stufen, jede mit verantwortlicher Person. Rückgabe:
+    (aktueller Status, Fehlerliste). Bei Fehlern ist der Status leer, er wird also nie
+    ungeprüft aus dem letzten Eintrag übernommen.
+    """
+    folge = [e.get("status") for e in ereignisse]
+    fehler = []
+    if not folge:
+        fehler.append("Statusverlauf fehlt")
+    elif folge != list(erlaubt[:len(folge)]) or len(folge) > len(erlaubt):
+        fehler.append("Statusverlauf ist unzulässig (" + " → ".join(str(f) for f in folge) + ")")
+    if any(not e.get("person") for e in ereignisse):
+        fehler.append("Statuswechsel ohne verantwortliche Person")
+    return ("" if fehler else folge[-1]), fehler
+
+
 class Ablage:
     def __init__(self, verzeichnis: str | Path):
         self.pfad = Path(verzeichnis)
         self.pfad.mkdir(parents=True, exist_ok=True)
         self.audit_pfad = self.pfad / "audit.jsonl"
+        # Kettenende: Anzahl und Prüfsumme des letzten Eintrags. Ohne diesen Anker hätte der letzte
+        # Eintrag keinen Nachfolger, der seine Veränderung verrät.
+        self.kopf_pfad = self.pfad / "audit.kopf.json"
 
     # --- Versionen --------------------------------------------------------------
 
@@ -140,12 +163,29 @@ class Ablage:
         return [json.loads(z) for z in self.audit_pfad.read_text(encoding="utf-8").splitlines() if z.strip()]
 
     def audit_unverfaelscht(self) -> bool:
+        """Kette vollständig: jeder Eintrag verweist auf seinen Vorgänger, das Kettenende auf den letzten.
+
+        Schutzgrenze: Wer Audit-Log und Kettenende gemeinsam konsistent neu schreibt, wird hiermit allein
+        nicht erkannt. Einzelne Änderungen, auch am letzten Eintrag, dagegen schon."""
+        try:
+            eintraege = self.audit()
+        except ValueError:
+            return False
         vorher = ""
-        for e in self.audit():
+        for e in eintraege:
             if e.get("vorher") != vorher:
                 return False
             vorher = hashlib.sha256(kanonisch(e).encode()).hexdigest()
-        return True
+        if not eintraege:
+            return not self.kopf_pfad.exists()
+        try:
+            kopf = json.loads(self.kopf_pfad.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        return kopf == {"eintraege": len(eintraege), "letzter": vorher}
+
+    def _statusereignisse(self, version: int) -> list[dict]:
+        return [e for e in self.audit() if e.get("ereignis") == "status" and e.get("version") == version]
 
     def pruefen(self, version: int) -> dict:
         """Liest einen Stand und prüft Inhalt, Prüfsummen, Warnungszähler und Audit-Kette.
@@ -162,6 +202,8 @@ class Ablage:
         if not self.audit_unverfaelscht():
             fehler.append("Audit-Log ist beschädigt")
         berechnet = [e for e in self.audit() if e.get("ereignis") == "berechnet" and e.get("version") == version]
+        _, folgefehler = statusfolge(self._statusereignisse(version), STATUS)
+        fehler.extend(folgefehler)
         if len(berechnet) != 1:
             fehler.append("Berechnung fehlt im Audit-Log")
         else:
@@ -179,10 +221,20 @@ class Ablage:
         eintrag = dict(eintrag, vorher=hashlib.sha256(kanonisch(eintraege[-1]).encode()).hexdigest() if eintraege else "")
         with open(self.audit_pfad, "a", encoding="utf-8") as f:
             f.write(kanonisch(eintrag) + "\n")
+        kopf = {"eintraege": len(eintraege) + 1, "letzter": hashlib.sha256(kanonisch(eintrag).encode()).hexdigest()}
+        tmp = self.kopf_pfad.with_suffix(".tmp")
+        tmp.write_text(kanonisch(kopf), encoding="utf-8")
+        os.replace(tmp, self.kopf_pfad)
 
     def status(self, version: int) -> str:
-        st = [e["status"] for e in self.audit() if e["ereignis"] == "status" and e["version"] == version]
-        return st[-1] if st else ""
+        """Aktueller Status aus der vollständig geprüften Statusfolge. Unzulässige Folge → Freigabefehler."""
+        ereignisse = self._statusereignisse(version)
+        if not ereignisse:
+            return ""
+        status, fehler = statusfolge(ereignisse, STATUS)
+        if fehler:
+            raise Freigabefehler(f"Version {version}: {'; '.join(fehler)}. Weitere Schritte gesperrt.")
+        return status
 
     def status_setzen(self, version: int, neu: str, *, person: str, zeit: datetime, notiz: str = "") -> None:
         if neu not in STATUS:

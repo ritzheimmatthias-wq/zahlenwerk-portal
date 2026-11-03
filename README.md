@@ -33,6 +33,12 @@ Jeder Lauf liefert Ergebnisdaten (JSON), einen internen Kontrollbericht, PDF-Ent
 und optional einen unveränderlichen, versionierten Berechnungsstand mit Audit-Log.
 Nichts wird versendet.
 
+Das Audit-Log ist verkettet (jeder Eintrag verweist auf seinen Vorgänger); das Kettenende
+`audit.kopf.json` hält Anzahl und Prüfsumme des letzten Eintrags. Freigaben prüfen zusätzlich die
+vollständige Statusfolge (entwurf → fachlich_geprueft → eigentuemer_freigegeben → endgueltig, ohne
+Sprünge, Doppelungen oder Rückschritte, jeweils mit Person). Grenze: Wer Log und Kettenende gemeinsam
+konsistent neu schreibt, wird allein dadurch nicht erkannt; dagegen helfen eingeschränkte Schreibrechte.
+
 ```
 python -m betriebskosten tests/beispiel/betriebskosten_pilot.toml --ausgabe ausgabe/ --ablage ablage/ --person "Name"
 ```

@@ -518,3 +518,91 @@ def test_gueltiger_ablauf_bleibt_moeglich(tmp_path):
     ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
     _endgueltig_bis(ablage, "endgueltig")
     assert ablage.status(1) == "endgueltig" and ablage.pruefen(1)["version"] == 1
+
+
+# --- N1 (Nachprüfung 02.11.2026): letzter Audit-Eintrag und vollständige Statusfolge -------
+
+def _zeilen_ersetzen(ablage, index, alt, neu):
+    zeilen = ablage.audit_pfad.read_text().splitlines()
+    assert alt in zeilen[index]
+    zeilen[index] = zeilen[index].replace(alt, neu)
+    ablage.audit_pfad.write_text("\n".join(zeilen) + "\n")
+
+
+def test_n1_letzter_eintrag_entwurf_auf_endgueltig_wird_erkannt(tmp_path):
+    # Gegenprobe 1 der Nachprüfung: nur im letzten Ereignis „entwurf“ → „endgueltig“, kein Hash neu gebildet
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    assert [e["ereignis"] for e in ablage.audit()] == ["berechnet", "status"]
+    _zeilen_ersetzen(ablage, -1, '"status":"entwurf"', '"status":"endgueltig"')
+    assert not ablage.audit_unverfaelscht()  # Kettenende passt nicht mehr
+    with pytest.raises(Freigabefehler, match="Audit-Log ist beschädigt"):
+        ablage.pruefen(1)
+    with pytest.raises(Freigabefehler):
+        ablage.status(1)  # unzulässige Folge, Status wird nicht übernommen
+    with pytest.raises(Freigabefehler):
+        ablage.status_setzen(1, "fachlich_geprueft", person="pruefer", zeit=ZEIT)
+
+
+def test_n1_letzter_eintrag_andere_felder_werden_erkannt(tmp_path):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    _endgueltig_bis(ablage, "fachlich_geprueft")
+    _zeilen_ersetzen(ablage, -1, '"person":"pruefer"', '"person":"jemand"')
+    assert not ablage.audit_unverfaelscht()
+    with pytest.raises(Freigabefehler, match="Audit-Log ist beschädigt"):
+        ablage.status_setzen(1, "eigentuemer_freigegeben", person="pruefer", zeit=ZEIT)
+
+
+def test_n1_konsistent_angehaengte_uebersprungene_stufe_sperrt(tmp_path):
+    # Auch ein korrekt verketteter, angehängter Eintrag darf keine Stufe überspringen
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    ablage._audit({"ereignis": "status", "version": 1, "status": "endgueltig", "person": "pruefer", "zeit": ZEIT.isoformat()})
+    assert ablage.audit_unverfaelscht()
+    with pytest.raises(Freigabefehler, match="Statusverlauf ist unzulässig"):
+        ablage.pruefen(1)
+    with pytest.raises(Freigabefehler, match="unzulässig"):
+        ablage.status(1)
+
+
+@pytest.mark.parametrize("folge", [
+    ["entwurf", "entwurf"],                              # doppelt
+    ["entwurf", "fachlich_geprueft", "fachlich_geprueft"],
+    ["entwurf", "fachlich_geprueft", "entwurf"],         # rückwärts
+    ["entwurf", "freigegeben"],                          # unbekannte Stufe
+])
+def test_n1_unzulaessige_folgen_sperren(tmp_path, folge):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    for s in folge[1:]:
+        ablage._audit({"ereignis": "status", "version": 1, "status": s, "person": "pruefer", "zeit": ZEIT.isoformat()})
+    with pytest.raises(Freigabefehler):
+        ablage.pruefen(1)
+
+
+def test_n1_status_ohne_person_sperrt(tmp_path):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    ablage._audit({"ereignis": "status", "version": 1, "status": "fachlich_geprueft", "person": "", "zeit": ZEIT.isoformat()})
+    with pytest.raises(Freigabefehler, match="ohne verantwortliche Person"):
+        ablage.pruefen(1)
+
+
+def test_n1_fehlendes_kettenende_sperrt(tmp_path):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    ablage.kopf_pfad.unlink()
+    with pytest.raises(Freigabefehler, match="Audit-Log ist beschädigt"):
+        ablage.pruefen(1)
+
+
+def test_n1_normale_folge_bleibt_moeglich(tmp_path):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    for s in ("fachlich_geprueft", "eigentuemer_freigegeben", "endgueltig"):
+        ablage.status_setzen(1, s, person="pruefer", zeit=ZEIT)
+        assert ablage.status(1) == s and ablage.audit_unverfaelscht()
+    assert ablage.pruefen(1)["version"] == 1
+    with pytest.raises(Freigabefehler):
+        ablage.status_setzen(1, "endgueltig", person="pruefer", zeit=ZEIT)
