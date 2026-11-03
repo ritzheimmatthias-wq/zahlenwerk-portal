@@ -606,3 +606,90 @@ def test_n1_normale_folge_bleibt_moeglich(tmp_path):
     assert ablage.pruefen(1)["version"] == 1
     with pytest.raises(Freigabefehler):
         ablage.status_setzen(1, "endgueltig", person="pruefer", zeit=ZEIT)
+
+
+# --- R1 (Nachprüfung 03.11.2026): neue Schreibvorgänge verankern keinen beschädigten Verlauf ---
+
+def _fall_wohnen_cent():
+    d = fall_wohnen()
+    d["belege"][2]["positionen"][0]["brutto"] = "100.01"  # um einen Cent geänderte Eingabe
+    return d
+
+
+def _schnappschuss(ablage):
+    """Dateien der Ablage samt Inhalt, um zu belegen, dass eine Ablehnung nichts schreibt."""
+    return {p.relative_to(ablage.pfad).as_posix(): p.read_bytes() for p in sorted(ablage.pfad.rglob("*")) if p.is_file()}
+
+
+def test_r1_a_neue_berechnung_legitimiert_veraenderten_letzten_eintrag_nicht(tmp_path):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    _endgueltig_bis(ablage, "endgueltig")
+    _zeilen_ersetzen(ablage, -1, '"person":"pruefer"', '"person":"jemand"')
+    assert not ablage.audit_unverfaelscht()
+    vorher = _schnappschuss(ablage)
+    for daten in (_fall_wohnen_cent(), fall_wohnen()):  # neue und identische Eingabe
+        with pytest.raises(Freigabefehler, match="beschädigt"):
+            ablage.speichern(berechne(aus_dict(daten)), zeit=ZEIT, person="pruefer")
+    assert _schnappschuss(ablage) == vorher  # keine neue Version, Kopf und Log unverändert
+    assert ablage.versionen() == [1] and not ablage.audit_unverfaelscht()
+    with pytest.raises(Freigabefehler):
+        ablage.pruefen(1)  # Altversion bleibt gesperrt
+
+
+def test_r1_c_fehlender_kopf_wird_nicht_still_neu_angelegt(tmp_path):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    ablage.kopf_pfad.unlink()
+    vorher = _schnappschuss(ablage)
+    for daten in (_fall_wohnen_cent(), fall_wohnen()):
+        with pytest.raises(Freigabefehler, match="fehlt"):
+            ablage.speichern(berechne(aus_dict(daten)), zeit=ZEIT, person="pruefer")
+    assert _schnappschuss(ablage) == vorher and not ablage.kopf_pfad.exists() and ablage.versionen() == [1]
+    with pytest.raises(Freigabefehler):
+        ablage.pruefen(1)
+    with pytest.raises(Freigabefehler):
+        ablage.status_setzen(1, "fachlich_geprueft", person="pruefer", zeit=ZEIT)
+
+
+def test_r1_c_staende_ohne_audit_log_werden_nicht_neu_initialisiert(tmp_path):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    ablage.kopf_pfad.unlink()
+    ablage.audit_pfad.unlink()  # Log und Kopf fehlen, Stand liegt noch da
+    vorher = _schnappschuss(ablage)
+    with pytest.raises(Freigabefehler, match="kein Audit-Log"):
+        ablage.speichern(berechne(aus_dict(_fall_wohnen_cent())), zeit=ZEIT, person="pruefer")
+    assert _schnappschuss(ablage) == vorher
+
+
+def test_r1_kopf_ohne_log_sperrt(tmp_path):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    ablage.audit_pfad.unlink()
+    vorher = _schnappschuss(ablage)
+    with pytest.raises(Freigabefehler):
+        ablage.speichern(berechne(aus_dict(_fall_wohnen_cent())), zeit=ZEIT, person="pruefer")
+    assert _schnappschuss(ablage) == vorher
+
+
+def test_r1_direktes_anhaengen_an_beschaedigte_kette_gesperrt(tmp_path):
+    ablage = Ablage(tmp_path)
+    ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer")
+    _zeilen_ersetzen(ablage, -1, '"person":"pruefer"', '"person":"jemand"')
+    kopf = ablage.kopf_pfad.read_bytes()
+    with pytest.raises(Freigabefehler):
+        ablage._audit({"ereignis": "status", "version": 1, "status": "fachlich_geprueft", "person": "x", "zeit": ZEIT.isoformat()})
+    assert ablage.kopf_pfad.read_bytes() == kopf
+
+
+def test_r1_positiv_neue_ablage_und_weitere_versionen(tmp_path):
+    ablage = Ablage(tmp_path / "neu")
+    assert not ablage.audit_pfad.exists() and not ablage.kopf_pfad.exists()
+    assert ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer") == (1, True)
+    assert ablage.speichern(berechne(aus_dict(fall_wohnen())), zeit=ZEIT, person="pruefer") == (1, False)
+    assert ablage.speichern(berechne(aus_dict(_fall_wohnen_cent())), zeit=ZEIT, person="pruefer") == (2, True)
+    assert ablage.audit_unverfaelscht() and ablage.pruefen(1) and ablage.pruefen(2)
+    for s in ("fachlich_geprueft", "eigentuemer_freigegeben", "endgueltig"):
+        ablage.status_setzen(2, s, person="pruefer", zeit=ZEIT)
+    assert ablage.status(2) == "endgueltig"

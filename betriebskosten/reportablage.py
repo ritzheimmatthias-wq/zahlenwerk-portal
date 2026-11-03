@@ -40,6 +40,8 @@ class ReportAblage:
         art = inhalt["report"]
         if art not in REPORTARTEN:
             raise ValueError(f"Unbekannte Reportart {art}")
+        # Vor jeder Datei: beschädigten Verlauf oder fehlendes Kettenende nicht neu verankern (R1).
+        self.ablage.schreibbar_pruefen()
         daten = json.loads(kanonisch(inhalt))
         h = inhalt_hash(daten)
         vorhanden = self.nummern(art)

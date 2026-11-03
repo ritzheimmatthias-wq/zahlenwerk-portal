@@ -730,3 +730,67 @@ def test_n1_normale_report_freigabe_bleibt_moeglich(tmp_path):
     for s in ("fachlich_geprueft", "freigegeben"):
         ra.status_setzen("vorauszahlung", 1, s, person="pruefer", zeit=ZEIT)
     assert ra.download_erlaubt("vorauszahlung", 1) and ablage.audit_unverfaelscht()
+
+
+# --- R1 (Nachprüfung 03.11.2026): neuer Report verankert keinen beschädigten Verlauf --------
+
+def _schnappschuss(ablage):
+    return {p.relative_to(ablage.pfad).as_posix(): p.read_bytes() for p in sorted(ablage.pfad.rglob("*")) if p.is_file()}
+
+
+def _anderer_inhalt(inhalt):
+    neu = copy.deepcopy(inhalt)
+    neu["regeln"] = dict(neu["regeln"], r1_testkennzeichen="geändert")  # erfundener, abweichender Inhalt
+    return neu
+
+
+def test_r1_b_neuer_report_legitimiert_veraenderten_letzten_eintrag_nicht(tmp_path):
+    from betriebskosten.jahresreports import main
+
+    ablage, ra = _freigegebener_report(tmp_path)
+    inhalt = ra.lesen("vorauszahlung", 1)["inhalt"]
+    _letzte_zeile(ablage, '"person":"pruefer"', '"person":"jemand"')
+    assert not ra.download_erlaubt("vorauszahlung", 1)
+    vorher = _schnappschuss(ablage)
+    for neu in (_anderer_inhalt(inhalt), inhalt):  # neuer und identischer Report
+        with pytest.raises(Freigabefehler, match="beschädigt"):
+            ra.speichern(neu, zeit=ZEIT, person="pruefer")
+    assert main(["vorauszahlung", "--ablage", str(ablage.pfad), "--ausgabe", str(tmp_path / "aus")]) == 1
+    assert _schnappschuss(ablage) == vorher  # keine Reportdatei, Kopf und Log unverändert
+    assert ra.nummern("vorauszahlung") == [1] and not ra.download_erlaubt("vorauszahlung", 1)
+
+
+def test_r1_a_ueber_cli_neue_berechnung_und_report_bleiben_gesperrt(tmp_path):
+    from betriebskosten.jahresreports import main
+
+    ablage, _, _ = endgueltig(tmp_path, fall_vz())
+    _letzte_zeile(ablage, '"person":"pruefer"', '"person":"jemand"')
+    vorher = _schnappschuss(ablage)
+    andere = fall_vz()
+    andere["belege"][0]["positionen"][0]["brutto"] = str(D(andere["belege"][0]["positionen"][0]["brutto"]) + D("0.01"))
+    with pytest.raises(Freigabefehler, match="beschädigt"):
+        ablage.speichern(berechne(aus_dict(andere)), zeit=ZEIT, person="pruefer")
+    assert main(["vorauszahlung", "--ablage", str(ablage.pfad), "--ausgabe", str(tmp_path / "aus")]) == 1
+    assert _schnappschuss(ablage) == vorher
+
+
+def test_r1_c_report_ohne_kopf_wird_nicht_neu_initialisiert(tmp_path):
+    ablage, ra = _freigegebener_report(tmp_path)
+    inhalt = ra.lesen("vorauszahlung", 1)["inhalt"]
+    ablage.kopf_pfad.unlink()
+    vorher = _schnappschuss(ablage)
+    with pytest.raises(Freigabefehler, match="fehlt"):
+        ra.speichern(_anderer_inhalt(inhalt), zeit=ZEIT, person="pruefer")
+    assert _schnappschuss(ablage) == vorher and not ablage.kopf_pfad.exists()
+    assert not ra.download_erlaubt("vorauszahlung", 1)
+
+
+def test_r1_positiv_neuer_report_neben_gueltigem_verlauf(tmp_path):
+    ablage, ra = _freigegebener_report(tmp_path)
+    inhalt = ra.lesen("vorauszahlung", 1)["inhalt"]
+    assert ra.speichern(inhalt, zeit=ZEIT, person="pruefer") == (1, False)
+    assert ra.speichern(_anderer_inhalt(inhalt), zeit=ZEIT, person="pruefer") == (2, True)
+    assert ablage.audit_unverfaelscht() and ra.download_erlaubt("vorauszahlung", 1)
+    for s in ("fachlich_geprueft", "freigegeben"):
+        ra.status_setzen("vorauszahlung", 2, s, person="pruefer", zeit=ZEIT)
+    assert ra.download_erlaubt("vorauszahlung", 2)

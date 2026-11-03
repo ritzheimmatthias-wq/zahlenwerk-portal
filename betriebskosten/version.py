@@ -125,8 +125,23 @@ class Ablage:
     def lesen(self, version: int) -> dict:
         return json.loads((self.pfad / f"v{version:03d}.json").read_text(encoding="utf-8"))
 
+    def schreibbar_pruefen(self) -> None:
+        """Vor jedem Schreibpfad: Die bestehende Kette samt bisherigem Kettenende muss unverfälscht sein.
+
+        Nur eine tatsächlich neue, leere Ablage (keine Versionen, keine Reports, kein Audit-Log, kein
+        Kettenende) darf initialisiert werden. Eine vorhandene Ablage ohne Kettenende oder mit
+        beschädigtem Verlauf wird nie durch neue Einträge wieder „legitimiert“ (Nachprüfung R1)."""
+        hat_inhalt = bool(self.versionen()) or any((self.pfad / "reports").glob("*.json"))
+        if not self.audit_pfad.exists() and not self.kopf_pfad.exists():
+            if hat_inhalt:
+                raise Freigabefehler("Ablage enthält Stände, aber kein Audit-Log. Schreiben gesperrt.")
+            return
+        if not self.audit_unverfaelscht():
+            raise Freigabefehler("Audit-Log oder Kettenende ist beschädigt bzw. fehlt. Schreiben gesperrt.")
+
     def speichern(self, erg, *, zeit: datetime, person: str) -> tuple[int, bool]:
         """Legt einen neuen Berechnungsstand an; identische Eingaben erzeugen keine neue Version."""
+        self.schreibbar_pruefen()  # vor jeder Datei: beschädigten Verlauf nicht neu verankern
         h = eingabe_hash(erg.daten)
         vorhanden = self.versionen()
         if vorhanden:
@@ -231,6 +246,10 @@ class Ablage:
         return stand
 
     def _audit(self, eintrag: dict) -> None:
+        # Zentrale Sperre: auch Aufrufer, die vorher nicht geprüft haben, verlängern keine beschädigte Kette.
+        # (Die Erstanlage einer leeren Ablage prüfen die öffentlichen Schreibpfade vor dem ersten Schreiben.)
+        if (self.audit_pfad.exists() or self.kopf_pfad.exists()) and not self.audit_unverfaelscht():
+            raise Freigabefehler("Audit-Log oder Kettenende ist beschädigt bzw. fehlt. Schreiben gesperrt.")
         eintraege = self.audit()
         eintrag = dict(eintrag, vorher=hashlib.sha256(kanonisch(eintraege[-1]).encode()).hexdigest() if eintraege else "")
         with open(self.audit_pfad, "a", encoding="utf-8") as f:
