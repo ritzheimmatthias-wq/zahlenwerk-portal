@@ -285,6 +285,8 @@ class Maileingang(models.Model):
     # Alle Anhänge sind verschlüsselt gesichert (Eingangsdatei mit Status „empfangen“ oder später)
     roh_gespeichert = models.BooleanField(default=False)
     bearbeitung_bis = models.DateTimeField(null=True, blank=True)  # befristeter Bearbeitungsanspruch
+    # Kennung des Laufs, der den Anspruch hält. Ein verspäteter Lauf mit altem Token schreibt nichts mehr.
+    bearbeitung_token = models.CharField(max_length=32, blank=True)
     angelegt = models.DateTimeField(auto_now_add=True)
 
     class Meta:

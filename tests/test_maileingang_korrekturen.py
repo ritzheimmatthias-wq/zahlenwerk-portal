@@ -119,8 +119,8 @@ def test_parallele_zustellung_nur_einmal_verarbeitet(welt):
     e1, neu1 = belege.annehmen(**nachricht("<parallel@x>", [("a.pdf", A)]))
     e2, neu2 = belege.annehmen(**nachricht("<parallel@x>", [("a.pdf", A)]))
     assert e1.pk == e2.pk and (neu1, neu2) == (True, False) and e1.dateien.count() == 1
-    assert belege._anspruch(e1.pk) is True
-    assert belege._anspruch(e2.pk) is False
+    assert belege._anspruch(e1.pk)  # Token des gewinnenden Laufs
+    assert belege._anspruch(e2.pk) == ""  # kein Token für den zweiten Lauf
     assert belege.verarbeiten(e2.pk).status == "in_bearbeitung" and dokumente(welt["a25"]) == 0
     Maileingang.objects.filter(pk=e1.pk).update(bearbeitung_bis=timezone.now() - timedelta(seconds=1))
     assert belege.verarbeiten(e1.pk).status == "verarbeitet"
@@ -252,3 +252,97 @@ def test_signatur_und_zeitfenster_unveraendert_streng(client, welt):
     assert post_eingang(client, META, [("a.pdf", A)], zeit=time.time() - 301).status_code == 403
     assert post_eingang(client, META, [("a.pdf", A)], zeit=time.time() + 301).status_code == 403
     assert not Maileingang.objects.exists()
+
+
+# --- N2 (Nachprüfung 02.11.2026): verspäteter Lauf nach Ablauf seines Anspruchs ------------
+
+def _zustand(eingang):
+    eingang.refresh_from_db()
+    dateien = sorted((d.pk, d.status, d.dokument_id) for d in eingang.dateien.all())
+    inhalte = sorted(tresor.lesen(d.speicher_id, d.schluessel) for d in Dokument.objects.filter(geloescht__isnull=True))
+    return (eingang.status, eingang.auftrag_id, eingang.belegvorgang_id, eingang.fehler, dateien,
+            Dokument.objects.filter(geloescht__isnull=True).count(), inhalte)
+
+
+def _neue_unterlagen(mail_outbox):
+    return [m for m in mail_outbox if m.subject.startswith("Neue Unterlagen")]
+
+
+def test_n2_gegenprobe_veralteter_lauf_ueberschreibt_nichts(welt, settings, monkeypatch, mailoutbox,
+                                                            django_capture_on_commit_callbacks):
+    # Nachstellung: Lauf A erhält den Anspruch und pausiert; der Anspruch verfällt; Lauf B verarbeitet
+    # vollständig; danach setzt Lauf A fort.
+    settings.MAIL_INTERN = "intern@beispiel.test"
+    eingang, _ = belege.annehmen(**nachricht("<n2@beispiel.test>", [("a.pdf", A), ("b.pdf", B)]))
+    echt_anspruch = belege._anspruch
+    nachher = {}
+
+    def anspruch_mit_pause(pk):
+        token = echt_anspruch(pk)  # Lauf A
+        Maileingang.objects.filter(pk=pk).update(bearbeitung_bis=timezone.now() - timedelta(seconds=1))
+        monkeypatch.setattr(belege, "_anspruch", echt_anspruch)
+        with django_capture_on_commit_callbacks(execute=True) as rueckrufe_b:
+            belege.verarbeiten(pk)  # Lauf B übernimmt und wird fertig
+        nachher["rueckrufe_b"] = len(rueckrufe_b)
+        nachher["b"] = _zustand(eingang)
+        nachher["mails"] = len(_neue_unterlagen(mailoutbox))
+        return token
+
+    monkeypatch.setattr(belege, "_anspruch", anspruch_mit_pause)
+    # Äußere Erfassung ohne Ausführung: sie sieht B's Rückrufe (schon ausgeführt) und jeden weiteren von A.
+    with django_capture_on_commit_callbacks(execute=False) as alle:
+        ergebnis = belege.verarbeiten(eingang.pk)  # Lauf A setzt fort
+    status, auftrag, vorgang, fehler, dateien, anzahl, inhalte = nachher["b"]
+    assert status == "verarbeitet" and auftrag == welt["a25"].pk and vorgang is not None and anzahl == 2
+    assert _zustand(eingang) == nachher["b"]  # Zuordnung, Dokumente, Dateistatus und Inhalte unverändert
+    assert ergebnis.belegvorgang_id == vorgang and ergebnis.status == "verarbeitet"
+    assert len(alle) == nachher["rueckrufe_b"]  # A hat keine Mail, kein Löschen und nichts sonst vorgemerkt
+    assert len(_neue_unterlagen(mailoutbox)) == nachher["mails"] == 1  # keine zweite Benachrichtigung
+    from kundenportal.models import Protokoll
+    assert Protokoll.objects.filter(aktion="maileingang_veralteter_lauf").count() == 1
+
+
+def test_n2_veralteter_lauf_nach_uebernahme_noch_in_bearbeitung(welt):
+    # B hat übernommen, ist aber noch nicht fertig: A darf weder verarbeiten noch den Anspruch beenden
+    eingang, _ = belege.annehmen(**nachricht("<n2b@beispiel.test>", [("a.pdf", A)]))
+    token_a = belege._anspruch(eingang.pk)
+    Maileingang.objects.filter(pk=eingang.pk).update(bearbeitung_bis=timezone.now() - timedelta(seconds=1))
+    token_b = belege._anspruch(eingang.pk)
+    assert token_a and token_b and token_a != token_b
+    vorher = _zustand(eingang)
+    belege._mit_anspruch_verarbeiten(eingang.pk, token_a)
+    assert _zustand(eingang) == vorher and dokumente(welt["a25"]) == 0
+    eingang.refresh_from_db()
+    assert eingang.bearbeitung_token == token_b  # B behält seinen Anspruch
+    belege._mit_anspruch_verarbeiten(eingang.pk, token_b)
+    eingang.refresh_from_db()
+    assert eingang.status == "verarbeitet" and dokumente(welt["a25"]) == 1 and eingang.bearbeitung_token == ""
+
+
+def test_n2_abgelaufener_eigener_anspruch_verarbeitet_nicht(welt):
+    eingang, _ = belege.annehmen(**nachricht("<n2c@beispiel.test>", [("a.pdf", A)]))
+    token = belege._anspruch(eingang.pk)
+    Maileingang.objects.filter(pk=eingang.pk).update(bearbeitung_bis=timezone.now() - timedelta(seconds=1))
+    belege._mit_anspruch_verarbeiten(eingang.pk, token)
+    eingang.refresh_from_db()
+    assert eingang.status == "in_bearbeitung" and dokumente(welt["a25"]) == 0
+    assert belege.wiederaufnehmen() == (1, 0)  # Wiederaufnahme übernimmt sauber
+    eingang.refresh_from_db()
+    assert eingang.status == "verarbeitet" and dokumente(welt["a25"]) == 1
+
+
+def test_n2_fehler_eines_veralteten_laufs_ueberschreibt_den_status_nicht(welt, monkeypatch):
+    eingang, _ = belege.annehmen(**nachricht("<n2d@beispiel.test>", [("a.pdf", A)]))
+    token_a = belege._anspruch(eingang.pk)
+    Maileingang.objects.filter(pk=eingang.pk).update(bearbeitung_bis=timezone.now() - timedelta(seconds=1))
+    belege.verarbeiten(eingang.pk)  # B fertig
+    vorher = _zustand(eingang)
+
+    def kaputt(*a, **k):
+        raise RuntimeError("simulierter Fehler")
+
+    monkeypatch.setattr(Maileingang.objects, "select_for_update", kaputt)
+    with pytest.raises(RuntimeError):
+        belege._mit_anspruch_verarbeiten(eingang.pk, token_a)
+    monkeypatch.undo()
+    assert _zustand(eingang) == vorher  # weiterhin „verarbeitet“, nicht „fehler“

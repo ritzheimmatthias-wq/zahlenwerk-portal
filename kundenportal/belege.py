@@ -23,6 +23,7 @@ import hmac
 import json
 import re
 import time
+import uuid
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -215,25 +216,50 @@ def annehmen(*, message_id: str, absender: str, betreff: str, text: str, empfang
     return eingang, neu
 
 
-def _anspruch(pk: int) -> bool:
-    """Atomarer, befristeter Bearbeitungsanspruch. Nur ein Lauf gewinnt; verwaiste Ansprüche verfallen."""
+def _anspruch(pk: int) -> str:
+    """Atomarer, befristeter Bearbeitungsanspruch. Nur ein Lauf gewinnt; verwaiste Ansprüche verfallen.
+
+    Gibt ein eindeutiges Token des Laufs zurück (leer, wenn ein anderer Lauf den Anspruch hält)."""
     jetzt = timezone.now()
-    return bool(Maileingang.objects.filter(pk=pk, roh_gespeichert=True).filter(
+    token = uuid.uuid4().hex
+    erhalten = Maileingang.objects.filter(pk=pk, roh_gespeichert=True).filter(
         Q(status__in=OFFEN) | Q(status="in_bearbeitung", bearbeitung_bis__lt=jetzt) | Q(status="in_bearbeitung", bearbeitung_bis__isnull=True)
-    ).update(status="in_bearbeitung", bearbeitung_bis=jetzt + LEASE, versuche=F("versuche") + 1))
+    ).update(status="in_bearbeitung", bearbeitung_bis=jetzt + LEASE, bearbeitung_token=token, versuche=F("versuche") + 1)
+    return token if erhalten else ""
+
+
+def _anspruch_gilt(eingang: Maileingang, token: str) -> bool:
+    """Unter der Zeilensperre: Hält dieser Lauf noch den gültigen Anspruch?"""
+    return (bool(token) and eingang.status == "in_bearbeitung" and eingang.bearbeitung_token == token
+            and eingang.bearbeitung_bis is not None and eingang.bearbeitung_bis >= timezone.now())
 
 
 def verarbeiten(pk: int) -> Maileingang:
     """Stufe 2: gesicherte Anhänge prüfen, zuordnen und übernehmen. Wiederholbar und idempotent."""
-    if not _anspruch(pk):
+    token = _anspruch(pk)
+    if not token:
         return Maileingang.objects.get(pk=pk)
+    return _mit_anspruch_verarbeiten(pk, token)
+
+
+def _mit_anspruch_verarbeiten(pk: int, token: str) -> Maileingang:
+    """Verarbeitet nur, solange `token` den gültigen Anspruch hält (Nachprüfung N2).
+
+    Ein Lauf, dessen Anspruch abgelaufen und von einem anderen Lauf übernommen wurde, oder der einen
+    inzwischen abgeschlossenen Eingang vorfindet, ändert nichts und gibt den Eingang unverändert zurück.
+    """
     try:
         with transaction.atomic():
             eingang = Maileingang.objects.select_for_update().get(pk=pk)
+            if not _anspruch_gilt(eingang, token):
+                protokoll("maileingang_veralteter_lauf", None, f"eingang:{pk}", f"status:{eingang.status}")
+                return eingang
             _verarbeiten(eingang)
     except Exception as e:  # nichts verlieren: Anhänge bleiben gesichert, Status fehler, erneut versuchbar
         fehler = f"{type(e).__name__}: {str(e)[:400]}"
-        Maileingang.objects.filter(pk=pk).update(status="fehler", fehler=fehler, bearbeitung_bis=None)
+        # Nur der Lauf mit gültigem Token darf den Fehler eintragen; ein veralteter Lauf überschreibt nichts.
+        Maileingang.objects.filter(pk=pk, status="in_bearbeitung", bearbeitung_token=token).update(
+            status="fehler", fehler=fehler, bearbeitung_bis=None, bearbeitung_token="")
         protokoll("maileingang_fehler", None, f"eingang:{pk}", fehler)
         raise
     return Maileingang.objects.get(pk=pk)
@@ -329,8 +355,8 @@ def _verarbeiten(eingang: Maileingang) -> None:
     eingang.auftrag, eingang.belegvorgang = auftrag, vorgang
     eingang.status = "quarantaene" if quarantaene else ("verarbeitet" if auftrag else "zuordnung_offen")
     eingang.fehler = "" if auftrag else grund
-    eingang.bearbeitung_bis = None
-    eingang.save(update_fields=["auftrag", "belegvorgang", "status", "fehler", "bearbeitung_bis"])
+    eingang.bearbeitung_bis, eingang.bearbeitung_token = None, ""
+    eingang.save(update_fields=["auftrag", "belegvorgang", "status", "fehler", "bearbeitung_bis", "bearbeitung_token"])
     protokoll("maileingang", None, f"eingang:{eingang.pk}",
               f"status:{eingang.status} " + " ".join(f"{k}:{v}" for k, v in zaehler.items()))
     if auftrag and seite:
