@@ -11,3 +11,9 @@ echt/
 *.sta
 *.mt940
 *.duckdb
+
+# Portal: lokale Entwicklung
+entwicklung.sqlite3
+daten/
+staticfiles/
+.env
