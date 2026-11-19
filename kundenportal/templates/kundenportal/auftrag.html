@@ -20,6 +20,8 @@
   <div class="card">
     <h2>Unterlage hochladen</h2>
     {% if offen %}
+    {% if checkliste %}<div class="note"><a href="{% url 'auftrag_checkliste' a.pk %}">{{ checkliste.titel }} (PDF) herunterladen</a><br>
+      Welche Unterlagen und Vertragsdaten wir benötigen und welche Kosten nicht auf den Mieter umgelegt werden können.</div>{% endif %}
     <p class="meta">Erlaubt: {{ erlaubt }} · höchstens 50 MB je Datei. ZIP, Makro-Dateien und Programme werden abgelehnt.</p>
     <form method="post" enctype="multipart/form-data" class="card flat">{% csrf_token %}
       {{ form.non_field_errors }}

@@ -16,7 +16,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from . import abrechnung, belege, dokumentvorlagen, mails, tresor
+from . import abrechnung, belege, checklisten, dokumentvorlagen, mails, tresor
 from .dateipruefung import Abgelehnt, ERLAUBT_TEXT, pruefe_datei, sicherer_name
 from .forms import (
     AnlegenForm, AnmeldeForm, CodeForm, EinheitFormSet, ErgebnisForm, KontoFormSet, PasswortForm, PunktForm, UploadForm,
@@ -205,8 +205,25 @@ def auftrag(request, pk: int):
     return render(request, "kundenportal/auftrag.html", {
         "a": a, "form": form, "offen": offen, "fertig": fertig, "gesamt": gesamt, "erlaubt": ERLAUBT_TEXT,
         "ergebnisse": dok.filter(richtung="ergebnis"), "eigene": dok.filter(richtung="kunde"),
-        "mobil": _mobil_sichtbar(request.user),
+        "mobil": _mobil_sichtbar(request.user), "checkliste": checklisten.fuer(a.leistung),
     })
+
+
+def auftrag_checkliste(request, pk: int):
+    """Checkliste zur Leistung des Auftrags (Blankovorlage, nur für Berechtigte, nur geprüfter Dateistand)."""
+    a = _auftrag(request.user, pk)
+    c = checklisten.fuer(a.leistung)
+    if c is None:
+        raise Http404
+    try:
+        inhalt = checklisten.lesen(c)
+    except checklisten.Pruefsummenfehler:
+        protokoll("checkliste_pruefsumme_falsch", request.user, f"auftrag:{a.pk}", a.leistung)
+        raise Http404 from None
+    protokoll("checkliste_download", request.user, f"auftrag:{a.pk}", a.leistung)
+    antwort = HttpResponse(inhalt, content_type="application/pdf")
+    antwort["Content-Disposition"] = f"attachment; filename*=UTF-8''{_url_name(c.datei)}"
+    return antwort
 
 
 def dokument(request, pk: int):
