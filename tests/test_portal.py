@@ -500,3 +500,45 @@ def test_weiterleitung_nur_intern(client, chef, kunde_angemeldet):
 def test_keine_telefonnummer_in_seiten(client, kunde_angemeldet):
     for url in ["/", reverse("auftrag", args=[kunde_angemeldet.pk])]:
         assert not re.search(r"\+49|tel:", client.get(url).content.decode())
+
+
+# --- Checkliste zum Download beim Upload-Schritt ------------------------------------
+
+def test_checkliste_betriebskosten_beim_upload(client, chef):
+    from kundenportal import checklisten
+    anmelden(client, chef.email)
+    r = client.post(reverse("intern_anlegen"), anlegen_daten(leistung="betriebskosten", einladen=""))
+    assert r.status_code == 302, r.content.decode()[:2000]
+    a = Auftrag.objects.get()
+    seite = client.get(reverse("auftrag", args=[a.pk])).content.decode()
+    assert reverse("auftrag_checkliste", args=[a.pk]) in seite
+    r = client.get(reverse("auftrag_checkliste", args=[a.pk]))
+    assert r.status_code == 200 and r["Content-Type"] == "application/pdf"
+    assert r.content.startswith(b"%PDF") and "Checkliste%20Betriebskostenabrechnung.pdf" in r["Content-Disposition"]
+    assert r.content == checklisten.lesen(checklisten.fuer("betriebskosten"))
+    assert Protokoll.objects.filter(aktion="checkliste_download", bezug=f"auftrag:{a.pk}").exists()
+
+
+def test_checkliste_nur_fuer_passende_leistung_und_berechtigte(client, kunde_angemeldet):
+    a = kunde_angemeldet  # WEG-Jahresabrechnung: keine Checkliste hinterlegt
+    assert reverse("auftrag_checkliste", args=[a.pk]) not in client.get(reverse("auftrag", args=[a.pk])).content.decode()
+    assert client.get(reverse("auftrag_checkliste", args=[a.pk])).status_code == 404
+    a.leistung = "betriebskosten"
+    a.save(update_fields=["leistung"])
+    assert client.get(reverse("auftrag_checkliste", args=[a.pk])).status_code == 200
+    fremd = Objekt.objects.create(kunde=Kunde.objects.create(name="Fremd (Beispiel)", art="weg"), bezeichnung="Fremdobjekt")
+    b = Auftrag.objects.create(objekt=fremd, leistung="betriebskosten", jahr=2025)
+    assert client.get(reverse("auftrag_checkliste", args=[b.pk])).status_code == 404
+    client.post(reverse("abmelden"))
+    assert client.get(reverse("auftrag_checkliste", args=[a.pk])).status_code in (302, 404)
+
+
+def test_checkliste_mit_falscher_pruefsumme_wird_nicht_ausgeliefert(client, kunde_angemeldet, monkeypatch):
+    from dataclasses import replace
+    from kundenportal import checklisten
+    a = kunde_angemeldet
+    a.leistung = "betriebskosten"
+    a.save(update_fields=["leistung"])
+    monkeypatch.setitem(checklisten.CHECKLISTEN, "betriebskosten", replace(checklisten.CHECKLISTEN["betriebskosten"], sha256="0" * 64))
+    assert client.get(reverse("auftrag_checkliste", args=[a.pk])).status_code == 404
+    assert Protokoll.objects.filter(aktion="checkliste_pruefsumme_falsch").exists()

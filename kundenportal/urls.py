@@ -11,6 +11,7 @@ urlpatterns = [
     path("einladung/<str:token>/", views.einladung, name="einladung"),
     path("objekt/<int:pk>/", views.objekt, name="objekt"),
     path("auftrag/<int:pk>/", views.auftrag, name="auftrag"),
+    path("auftrag/<int:pk>/checkliste/", views.auftrag_checkliste, name="auftrag_checkliste"),
     path("dokument/<int:pk>/", views.dokument, name="dokument"),
     path("download/<str:token>/", views.download, name="download"),
     path("vorlagen/", views.vorlagen, name="vorlagen"),
